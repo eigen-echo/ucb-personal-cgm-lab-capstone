@@ -57,6 +57,20 @@ That GMI of 7.52 corresponds to an estimated HbA1c around 7.5. The goal is 6.0. 
 
 ---
 
+## Key findings
+
+These are the headline results from the per-meal regression model, fitted on 218 training meals and evaluated on 77 held-out meals from the last 21 days.
+
+**Model performance.** The Ridge regression generalizes the best. On the held-out test set it achieves an RMSE of 34 mg/dL and an MAE of 26 mg/dL, explaining about 15% of variance in post-meal glucose excursions (R² = 0.15). The gradient booster fits training data tightly (train R² = 0.91) but does not generalize — its test R² is 0.10, nearly identical to Ridge on absolute error while badly overfitting. With 218 training rows and 24 features, that gap is expected. More data, especially more walked meals across varied carb loads, is the fix.
+
+**Walk dose-response.** A 25-minute walk within 90 minutes of a meal reduces the predicted peak excursion by about 3.8 mg/dL compared to no walk, holding carb load and pre-meal glucose constant. Extending to 45 minutes adds no further predicted benefit — both models produce the same response curve above 25 minutes. Given only 22 walked meals in training, the dose-response above 30 minutes is extrapolation rather than a firm estimate. The directional answer to my dinner-time question is: 25 minutes appears to be the threshold, and more time doesn't buy more suppression in this dataset.
+
+**Pre-meal glucose is the dominant predictor.** Both the Ridge coefficients and the SHAP summary agree: where my glucose starts before a meal is the strongest single driver of how high it peaks. Carb load and time of day follow behind it. Walk minutes matter but rank lower, which reflects the sparse walk data.
+
+**Dish ranking (adjusted).** Using the model residuals to rank dishes removes the confounding from when and how I tend to eat each food. Chai and dosa tend to spike less than their raw averages suggest - they often appear at breakfast when pre-meal glucose happens to be lower. Meals logged as "salad" or veg biryani carry positive residuals, meaning they spike more than the model expects given their context — likely a logging artifact (hidden carbs in dressings, larger portions than assumed) rather than a property of the dish itself.
+
+---
+
 ## Repo layout
 
 ```
