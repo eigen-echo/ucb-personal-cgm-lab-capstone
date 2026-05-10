@@ -1,0 +1,105 @@
+fast_id,date,dow,window_type,start_ts,end_ts,duration_hours,confidence,notes
+F00001,2026-02-01,Sunday,overnight,2026-01-31T19:00:00,2026-02-01T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00002,2026-02-01,Sunday,intermittent_skip_breakfast,2026-01-31T19:00:00,2026-02-01T11:47:10,16.79,high,Confirmed against meals_v2: no meal 7AM-11:30AM; fast ended at first meal >=11:30AM (tea before 7AM is routine and does not break IF).
+F00003,2026-02-02,Monday,overnight,2026-02-01T19:00:00,2026-02-02T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00004,2026-02-03,Tuesday,overnight,2026-02-02T19:00:00,2026-02-03T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00005,2026-02-03,Tuesday,intermittent_skip_breakfast,2026-02-02T19:00:00,2026-02-03T14:47:20,19.79,high,Confirmed against meals_v2: no meal 7AM-11:30AM; fast ended at first meal >=11:30AM (tea before 7AM is routine and does not break IF).
+F00006,2026-02-04,Wednesday,overnight,2026-02-03T19:00:00,2026-02-04T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00007,2026-02-05,Thursday,overnight,2026-02-04T19:00:00,2026-02-05T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00008,2026-02-06,Friday,overnight,2026-02-05T19:00:00,2026-02-06T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00009,2026-02-06,Friday,intermittent_skip_breakfast,2026-02-05T19:00:00,2026-02-06T12:57:21,17.96,high,Confirmed against meals_v2: no meal 7AM-11:30AM; fast ended at first meal >=11:30AM (tea before 7AM is routine and does not break IF).
+F00010,2026-02-07,Saturday,overnight,2026-02-06T19:00:00,2026-02-07T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00011,2026-02-08,Sunday,overnight,2026-02-07T19:00:00,2026-02-08T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00012,2026-02-09,Monday,overnight,2026-02-08T19:00:00,2026-02-09T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00013,2026-02-10,Tuesday,overnight,2026-02-09T19:00:00,2026-02-10T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00014,2026-02-11,Wednesday,overnight,2026-02-10T19:00:00,2026-02-11T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00015,2026-02-12,Thursday,overnight,2026-02-11T19:00:00,2026-02-12T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00016,2026-02-13,Friday,overnight,2026-02-12T19:00:00,2026-02-13T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00017,2026-02-14,Saturday,overnight,2026-02-13T19:00:00,2026-02-14T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00018,2026-02-15,Sunday,overnight,2026-02-14T19:00:00,2026-02-15T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00019,2026-02-16,Monday,overnight,2026-02-15T19:00:00,2026-02-16T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00020,2026-02-17,Tuesday,overnight,2026-02-16T19:00:00,2026-02-17T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00021,2026-02-17,Tuesday,intermittent_skip_breakfast,2026-02-16T19:00:00,2026-02-17T12:01:01,17.02,high,Confirmed against meals_v2: no meal 7AM-11:30AM; fast ended at first meal >=11:30AM (tea before 7AM is routine and does not break IF).
+F00022,2026-02-18,Wednesday,overnight,2026-02-17T19:00:00,2026-02-18T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00023,2026-02-19,Thursday,overnight,2026-02-18T19:00:00,2026-02-19T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00024,2026-02-20,Friday,overnight,2026-02-19T19:00:00,2026-02-20T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00025,2026-02-21,Saturday,overnight,2026-02-20T19:00:00,2026-02-21T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00026,2026-02-22,Sunday,overnight,2026-02-21T19:00:00,2026-02-22T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00027,2026-02-23,Monday,overnight,2026-02-22T19:00:00,2026-02-23T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00028,2026-02-23,Monday,intermittent_skip_breakfast,2026-02-22T19:00:00,2026-02-23T12:21:25,17.36,high,Confirmed against meals_v2: no meal 7AM-11:30AM; fast ended at first meal >=11:30AM (tea before 7AM is routine and does not break IF).
+F00029,2026-02-24,Tuesday,overnight,2026-02-23T19:00:00,2026-02-24T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00030,2026-02-25,Wednesday,overnight,2026-02-24T19:00:00,2026-02-25T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00031,2026-02-26,Thursday,overnight,2026-02-25T19:00:00,2026-02-26T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00032,2026-02-27,Friday,overnight,2026-02-26T19:00:00,2026-02-27T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00033,2026-02-28,Saturday,overnight,2026-02-27T19:00:00,2026-02-28T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00034,2026-03-01,Sunday,overnight,2026-02-28T19:00:00,2026-03-01T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00035,2026-03-02,Monday,overnight,2026-03-01T19:00:00,2026-03-02T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00036,2026-03-03,Tuesday,overnight,2026-03-02T19:00:00,2026-03-03T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00037,2026-03-04,Wednesday,overnight,2026-03-03T19:00:00,2026-03-04T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00038,2026-03-04,Wednesday,intermittent_skip_breakfast,2026-03-03T19:00:00,2026-03-04T11:58:29,16.97,high,Confirmed against meals_v2: no meal 7AM-11:30AM; fast ended at first meal >=11:30AM (tea before 7AM is routine and does not break IF).
+F00039,2026-03-05,Thursday,overnight,2026-03-04T19:00:00,2026-03-05T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00040,2026-03-06,Friday,overnight,2026-03-05T19:00:00,2026-03-06T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00041,2026-03-07,Saturday,overnight,2026-03-06T19:00:00,2026-03-07T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00042,2026-03-08,Sunday,overnight,2026-03-07T19:00:00,2026-03-08T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00043,2026-03-09,Monday,overnight,2026-03-08T19:00:00,2026-03-09T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00044,2026-03-10,Tuesday,overnight,2026-03-09T19:00:00,2026-03-10T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00045,2026-03-11,Wednesday,overnight,2026-03-10T19:00:00,2026-03-11T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00046,2026-03-11,Wednesday,intermittent_skip_breakfast,2026-03-10T19:00:00,2026-03-11T14:03:46,19.06,high,Confirmed against meals_v2: no meal 7AM-11:30AM; fast ended at first meal >=11:30AM (tea before 7AM is routine and does not break IF).
+F00047,2026-03-12,Thursday,overnight,2026-03-11T19:00:00,2026-03-12T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00048,2026-03-13,Friday,overnight,2026-03-12T19:00:00,2026-03-13T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00049,2026-03-14,Saturday,overnight,2026-03-13T19:00:00,2026-03-14T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00050,2026-03-15,Sunday,overnight,2026-03-14T19:00:00,2026-03-15T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00051,2026-03-16,Monday,overnight,2026-03-15T19:00:00,2026-03-16T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00052,2026-03-16,Monday,intermittent_skip_breakfast,2026-03-15T19:00:00,2026-03-16T12:17:16,17.29,high,Confirmed against meals_v2: no meal 7AM-11:30AM; fast ended at first meal >=11:30AM (tea before 7AM is routine and does not break IF).
+F00053,2026-03-17,Tuesday,overnight,2026-03-16T19:00:00,2026-03-17T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00054,2026-03-17,Tuesday,intermittent_skip_breakfast,2026-03-16T19:00:00,2026-03-17T15:12:56,20.22,high,Confirmed against meals_v2: no meal 7AM-11:30AM; fast ended at first meal >=11:30AM (tea before 7AM is routine and does not break IF).
+F00055,2026-03-18,Wednesday,overnight,2026-03-17T19:00:00,2026-03-18T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00056,2026-03-19,Thursday,overnight,2026-03-18T19:00:00,2026-03-19T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00057,2026-03-20,Friday,overnight,2026-03-19T19:00:00,2026-03-20T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00058,2026-03-20,Friday,intermittent_skip_breakfast,2026-03-19T19:00:00,2026-03-20T12:30:00,17.5,high,Confirmed against meals_v2: no meal labeled 11:30AM-end-of-day; end_ts retained as placeholder.
+F00059,2026-03-21,Saturday,overnight,2026-03-20T19:00:00,2026-03-21T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00060,2026-03-21,Saturday,intermittent_skip_breakfast,2026-03-20T19:00:00,2026-03-21T12:30:00,17.5,high,Confirmed against meals_v2: no meal labeled 11:30AM-end-of-day; end_ts retained as placeholder.
+F00061,2026-03-22,Sunday,overnight,2026-03-21T19:00:00,2026-03-22T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00062,2026-03-23,Monday,overnight,2026-03-22T19:00:00,2026-03-23T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00063,2026-03-24,Tuesday,overnight,2026-03-23T19:00:00,2026-03-24T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00064,2026-03-25,Wednesday,overnight,2026-03-24T19:00:00,2026-03-25T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00065,2026-03-25,Wednesday,intermittent_skip_breakfast,2026-03-24T19:00:00,2026-03-25T12:30:00,17.5,high,Confirmed against meals_v2: no meal labeled 11:30AM-end-of-day; end_ts retained as placeholder.
+F00066,2026-03-26,Thursday,overnight,2026-03-25T19:00:00,2026-03-26T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00067,2026-03-26,Thursday,intermittent_skip_breakfast,2026-03-25T19:00:00,2026-03-26T20:20:31,25.34,high,Confirmed against meals_v2: no meal 7AM-11:30AM; fast ended at first meal >=11:30AM (tea before 7AM is routine and does not break IF).
+F00068,2026-03-27,Friday,overnight,2026-03-26T19:00:00,2026-03-27T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00069,2026-03-28,Saturday,overnight,2026-03-27T19:00:00,2026-03-28T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00070,2026-03-29,Sunday,overnight,2026-03-28T19:00:00,2026-03-29T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00071,2026-03-30,Monday,overnight,2026-03-29T19:00:00,2026-03-30T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00072,2026-03-31,Tuesday,overnight,2026-03-30T19:00:00,2026-03-31T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00073,2026-04-01,Wednesday,overnight,2026-03-31T19:00:00,2026-04-01T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00074,2026-04-02,Thursday,overnight,2026-04-01T19:00:00,2026-04-02T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00075,2026-04-03,Friday,overnight,2026-04-02T19:00:00,2026-04-03T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00076,2026-04-04,Saturday,overnight,2026-04-03T19:00:00,2026-04-04T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00077,2026-04-05,Sunday,overnight,2026-04-04T19:00:00,2026-04-05T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00078,2026-04-06,Monday,overnight,2026-04-05T19:00:00,2026-04-06T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00079,2026-04-07,Tuesday,overnight,2026-04-06T19:00:00,2026-04-07T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00080,2026-04-08,Wednesday,overnight,2026-04-07T19:00:00,2026-04-08T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00081,2026-04-09,Thursday,overnight,2026-04-08T19:00:00,2026-04-09T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00082,2026-04-10,Friday,overnight,2026-04-09T19:00:00,2026-04-10T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00083,2026-04-11,Saturday,overnight,2026-04-10T19:00:00,2026-04-11T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00084,2026-04-12,Sunday,overnight,2026-04-11T19:00:00,2026-04-12T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00085,2026-04-13,Monday,overnight,2026-04-12T19:00:00,2026-04-13T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00086,2026-04-14,Tuesday,overnight,2026-04-13T19:00:00,2026-04-14T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00087,2026-04-14,Tuesday,intermittent_skip_breakfast,2026-04-13T19:00:00,2026-04-14T11:42:31,16.71,high,Confirmed against meals_v2: no meal 7AM-11:30AM; fast ended at first meal >=11:30AM (tea before 7AM is routine and does not break IF).
+F00088,2026-04-15,Wednesday,overnight,2026-04-14T19:00:00,2026-04-15T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00089,2026-04-16,Thursday,overnight,2026-04-15T19:00:00,2026-04-16T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00090,2026-04-16,Thursday,intermittent_skip_breakfast,2026-04-15T19:00:00,2026-04-16T12:02:41,17.04,high,Confirmed against meals_v2: no meal 7AM-11:30AM; fast ended at first meal >=11:30AM (tea before 7AM is routine and does not break IF).
+F00091,2026-04-17,Friday,overnight,2026-04-16T19:00:00,2026-04-17T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00092,2026-04-18,Saturday,overnight,2026-04-17T19:00:00,2026-04-18T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00093,2026-04-19,Sunday,overnight,2026-04-18T19:00:00,2026-04-19T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00094,2026-04-20,Monday,overnight,2026-04-19T19:00:00,2026-04-20T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00095,2026-04-20,Monday,intermittent_skip_breakfast,2026-04-19T19:00:00,2026-04-20T12:43:01,17.72,high,Confirmed against meals_v2: no meal 7AM-11:30AM; fast ended at first meal >=11:30AM (tea before 7AM is routine and does not break IF).
+F00096,2026-04-21,Tuesday,overnight,2026-04-20T19:00:00,2026-04-21T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00097,2026-04-21,Tuesday,intermittent_skip_breakfast,2026-04-20T19:00:00,2026-04-21T13:07:25,18.12,high,Confirmed against meals_v2: no meal 7AM-11:30AM; fast ended at first meal >=11:30AM (tea before 7AM is routine and does not break IF).
+F00098,2026-04-22,Wednesday,overnight,2026-04-21T19:00:00,2026-04-22T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00099,2026-04-23,Thursday,overnight,2026-04-22T19:00:00,2026-04-23T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00100,2026-04-24,Friday,overnight,2026-04-23T19:00:00,2026-04-24T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00101,2026-04-25,Saturday,overnight,2026-04-24T19:00:00,2026-04-25T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00102,2026-04-26,Sunday,overnight,2026-04-25T19:00:00,2026-04-26T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00103,2026-04-27,Monday,overnight,2026-04-26T19:00:00,2026-04-27T07:00:00,12.0,high,Default; ends with morning tea ~7AM.
+F00104,2026-04-28,Tuesday,overnight,2026-04-27T19:00:00,2026-04-28T07:00:00,12.0,high,Default; ends with morning tea ~7AM.

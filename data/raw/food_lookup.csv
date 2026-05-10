@@ -1,0 +1,64 @@
+dish_key,display_name,default_portion,portion_unit,carbs_g,protein_g,fat_g,glycemic_load_est,source,notes
+idli,Idli,1,piece,8,2,0,medium,manual,Steamed rice/urad cake; ~30-35g cooked.
+plain_dosa,Plain dosa,1,piece,18,3,3,medium,manual,Thin crepe; carbs depend on size.
+masala_dosa,Masala dosa,1,piece,35,5,8,high,manual,Dosa + potato filling.
+uttapam,Uttapam,1,piece,25,4,3,medium,manual,Thicker than dosa.
+upma,Upma,1,cup,32,5,6,medium,manual,Roasted semolina.
+pongal,Ven pongal,1,cup,40,6,8,high,manual,Rice + moong dal + ghee.
+white_rice,White rice (cooked),1,cup,45,4,0,high,manual,Standard 200g cooked.
+brown_rice,Brown rice (cooked),1,cup,45,5,2,medium,manual,~25 GI lower than white.
+curd_rice,Curd rice,1,cup,40,6,3,medium,manual,Rice + yogurt.
+sambar,Sambar,1,cup,20,6,4,low,manual,Lentil + tamarind stew.
+rasam,Rasam,1,cup,8,2,1,low,manual,Thin tamarind broth.
+toor_dal,Toor dal,1,cup,30,12,3,low,manual,Pigeon pea lentil.
+chapati,Chapati / roti,1,piece,15,3,1,medium,manual,Whole wheat flatbread.
+paratha,Plain paratha,1,piece,25,4,6,medium,manual,Pan-fried.
+aloo_paratha,Aloo paratha,1,piece,35,5,8,high,manual,Potato stuffed.
+puri,Puri,1,piece,12,2,4,medium,manual,Deep-fried.
+biryani,Veg biryani,1,cup,50,8,10,high,manual,Rice-heavy.
+vada,Medu vada,1,piece,10,4,8,low,manual,Urad dal fritter.
+coconut_chutney,Coconut chutney,2,tbsp,3,1,5,low,manual,Side condiment.
+tomato_chutney,Tomato chutney,2,tbsp,4,1,2,low,manual,Side condiment.
+mixed_veg_curry,Mixed vegetable curry,1,cup,15,4,6,low,manual,Generic poriyal/kuzhambu.
+chai_with_milk_no_sugar,Tea with milk + sugar,1,cup,10,2,2,medium,manual, no sugar.
+banana,Banana,1,medium,27,1,0,medium,manual,~118g.
+apple,Apple,1,medium,25,0,0,low,manual,~180g.
+almonds,Almonds,10,pieces,2,3,6,low,manual,Snack.
+paneer,Paneer (cubed),50,g,2,9,10,low,manual,Indian cheese.
+chicken_curry,Chicken curry,1,cup,8,25,12,low,manual,Carbs from onion/tomato base.
+chicken_biryani,Chicken biryani,1,cup,70,8,10,high,manual,Rice-heavy.
+chicken_salad,Chicken Salad,1,cup,15,8,10,high,manual,lettuce and chicken.
+medit_hummus_bowl_chicken,Chicken with Hummus,1,cup,30,8,10,low,manual,lettuce and chicken.
+veg_salad,Veg Salad,1,cup,15,8,10,low,manual,lettuce and avacado
+maggi,Maggi Instant Noodles,1,cup,45,8,10,high,manual,
+bagel_and_cream_cheese,bagel and cream cheese,1,serving,62,6,17,high,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+cake,cake,1,serving,45,0,14,high,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+cappacino_and_avacado_croissant,cappacino and avacado croissant,1,serving,65,16,37,high,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+cappucino_and_croissant,cappucino and croissant,1,serving,62,14,32,high,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+cappucino_and_grilled_cheese,cappucino and grilled cheese,1,serving,65,27,33,high,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+chicken,chicken,1,serving,0,92,35,low,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+chicken_and_rice,chicken and rice,1,serving,45,48,18,medium,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+chicken_biryani_paradise_pointe,chicken biryani paradise pointe,1,serving,150,60,50,high,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+chicken_kabob_and_dosa,chicken kabob and dosa,1,serving,60,65,35,medium,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+chicken_sandwhich,chicken sandwhich,1,serving,40,28,18,medium,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+chicken_salad_with_pasta,chicken_salad_with_pasta,1,serving,48,34,18,medium,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+chipotle_burrito_bowl,chipotle burrito bowl,1,serving,72,15,34,high,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+chips,chips,1,serving,25,0,0,medium,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+coffee_and_impossible_sandwhich,coffee and impossible sandwhich,1,serving,45,27,27,medium,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+croissant,croissant,1,serving,32,6,18,medium,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+dosa,dosa,1,serving,70,9,12,high,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+dosa_or_maggi,dosa or maggi,1,serving,70,9,12,high,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+inchin_garlic_rice_chicken,inchin garlic rice chicken,1,serving,85,32,24,high,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+low_gi_basmati_rice,low gi basmati rice,1,serving,23,3,0,low,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+maggi_noodles,maggi noodles,1,serving,70,11,20,high,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+namaste_combo_1,namaste combo 1,1,serving,82,14,18,high,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+pho_noodles,pho noodles,1,serving,65,35,8,high,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+rasgulla,rasgulla,1,serving,42,8,18,high,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+regular_rice,regular rice,1,serving,42,3,0,high,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+salad,salad,1,serving,14,6,22,low,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+sushi,sushi,1,serving,62,18,5,high,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+tea,tea,1,serving,12,8,8,low,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+veg_2_curry_combo_with_rice,veg 2 curry combo with rice,1,serving,82,14,18,high,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+veg_biryani_and_paneer,veg biryani and paneer,1,serving,38,18,22,medium,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+veg_biryani_and_samosa_chat,veg biryani and samosa chat,1,serving,70,10,26,high,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
+quinoa,quinoa,1,serving,44,10,18,medium,manual_pending,Auto-added from meals_v2.csv; fill in carb profile.
