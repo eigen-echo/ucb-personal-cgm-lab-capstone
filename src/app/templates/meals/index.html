@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Meals — CGM Tracker{% endblock %}
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+  <h1 style="margin:0">Meals <span style="font-size:0.85rem; color:#666; font-weight:400">(last 7 days)</span></h1>
+  <a href="/meals/new" class="btn btn-primary">+ Log meal</a>
+</div>
+
+<div class="card">
+  {% if meals %}
+  <table>
+    <thead>
+      <tr>
+        <th>Date / Time</th>
+        <th>Dish</th>
+        <th>Type</th>
+        <th>Carbs (g)</th>
+        <th>Fasted</th>
+        <th>Notes</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in meals %}
+      <tr>
+        <td>{{ m.ts.strftime("%b %d %H:%M") }}</td>
+        <td>{{ m.dish_names or "—" }}</td>
+        <td>
+          {% if m.meal_type %}
+            <span class="badge badge-gray">{{ m.meal_type }}</span>
+          {% else %}—{% endif %}
+        </td>
+        <td>{{ m.carbs_grams_logged or m.carbs_grams_estimated or "—" }}</td>
+        <td>{{ "yes" if m.fasted_meal else "—" }}</td>
+        <td style="color:#888; font-size:0.82rem">{{ m.notes or "" }}</td>
+        <td style="white-space:nowrap">
+          <a href="/meals/{{ m.id }}/edit" class="btn btn-primary btn-sm">Edit</a>
+          <form method="post" action="/meals/{{ m.id }}/delete" style="display:inline"
+                onsubmit="return confirm('Delete this meal?')">
+            <button class="btn btn-danger">Del</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:#999">No meals logged in the last 7 days.</p>
+  {% endif %}
+</div>
+{% endblock %}

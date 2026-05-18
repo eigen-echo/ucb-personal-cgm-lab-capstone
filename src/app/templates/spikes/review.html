@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Spike Review — CGM Tracker{% endblock %}
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+  <h1 style="margin:0">
+    Unreviewed spikes
+    <span style="font-size:0.85rem; color:#666; font-weight:400">(unattributed glucose peaks)</span>
+  </h1>
+  <a href="/config/" class="btn btn-primary btn-sm" style="background:#555">Settings</a>
+</div>
+
+{% if not spikes %}
+<div class="card">
+  <p style="color:#999">No pending spikes — all detected peaks are matched to a meal, activity, or have been dismissed.</p>
+</div>
+{% else %}
+<div class="card">
+  <p style="font-size:0.88rem; color:#555; margin-bottom:1rem">
+    These glucose peaks have no meal or activity logged nearby. For each one, log what caused it or dismiss it.
+    Peaks marked <strong>Log meal</strong> will pre-fill the meal time 45 min before the peak;
+    <strong>Log activity</strong> pre-fills 30 min before.
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Peak time</th>
+        <th>Baseline</th>
+        <th>Peak</th>
+        <th>Rise (Δ)</th>
+        <th colspan="4" style="text-align:center">What caused this?</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in spikes %}
+      <tr>
+        <td style="white-space:nowrap">{{ s.peak_ts.strftime("%b %d %H:%M") }}</td>
+        <td>{{ "%.0f"|format(s.baseline_glucose) }} mg/dL</td>
+        <td>{{ "%.0f"|format(s.peak_glucose) }} mg/dL</td>
+        <td>
+          <span class="badge
+            {% if s.peak_delta >= 40 %}badge-red
+            {% elif s.peak_delta >= 25 %}badge-orange
+            {% else %}badge-gray{% endif %}">
+            +{{ "%.0f"|format(s.peak_delta) }}
+          </span>
+        </td>
+        <td>
+          <a href="/meals/new?ts={{ s.meal_prefill }}" class="btn btn-success btn-sm">Log meal</a>
+        </td>
+        <td>
+          <a href="/activities/new?ts={{ s.act_prefill }}" class="btn btn-primary btn-sm">Log activity</a>
+        </td>
+        <td>
+          <form method="post" action="/spikes/{{ s.id }}/acknowledge" style="display:inline">
+            <input type="hidden" name="attribution" value="fasting">
+            <button class="btn btn-sm" style="background:#7b1fa2; color:#fff">Fasting</button>
+          </form>
+        </td>
+        <td>
+          <form method="post" action="/spikes/{{ s.id }}/acknowledge" style="display:inline">
+            <input type="hidden" name="attribution" value="no_data">
+            <button class="btn btn-sm" style="background:#ccc; color:#333">No data</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Food Lookup — CGM Tracker{% endblock %}
+{% block content %}
+<h1>Food lookup</h1>
+
+<div class="card">
+  <form method="get" action="/food/" style="display:flex; gap:0.75rem; margin-bottom:1rem; align-items:flex-end">
+    <div class="field" style="flex:1; margin:0">
+      <label>Search dish</label>
+      <input type="text" name="q" value="{{ q }}" placeholder="e.g. dosa">
+    </div>
+    <button type="submit" class="btn btn-primary">Search</button>
+    {% if q %}<a href="/food/" class="btn btn-primary" style="background:#ccc; color:#333">Clear</a>{% endif %}
+  </form>
+
+  {% if items %}
+  <table>
+    <thead>
+      <tr><th>Dish</th><th>Carbs (g)</th><th>Protein (g)</th><th>Fat (g)</th><th>GL</th><th>Source</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for f in items %}
+      <tr>
+        <td>{{ f.display_name }}</td>
+        <td>{{ f.carbs_g or "—" }}</td>
+        <td>{{ f.protein_g or "—" }}</td>
+        <td>{{ f.fat_g or "—" }}</td>
+        <td>
+          {% if f.gl %}
+            <span class="badge {{ 'badge-green' if f.gl == 'low' else ('badge-orange' if f.gl == 'medium' else 'badge-red') }}">
+              {{ f.gl }}
+            </span>
+          {% else %}—{% endif %}
+        </td>
+        <td><span class="badge badge-gray">{{ f.source }}</span></td>
+        <td>
+          <form method="post" action="/food/{{ f.id }}/delete"
+                onsubmit="return confirm('Remove {{ f.display_name }}?')">
+            <button class="btn btn-danger">Del</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:#999">No dishes found{% if q %} matching "{{ q }}"{% endif %}.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Add new dish</h2>
+  <form method="post" action="/food/add">
+    <div class="form-row">
+      <div class="field">
+        <label>Display name *</label>
+        <input type="text" name="display_name" placeholder="e.g. Idli (2 pieces)" required>
+      </div>
+      <div class="field">
+        <label>Carbs (g)</label>
+        <input type="number" name="carbs_g" step="0.5" min="0" placeholder="e.g. 30">
+      </div>
+      <div class="field">
+        <label>Protein (g)</label>
+        <input type="number" name="protein_g" step="0.5" min="0">
+      </div>
+      <div class="field">
+        <label>Fat (g)</label>
+        <input type="number" name="fat_g" step="0.5" min="0">
+      </div>
+      <div class="field">
+        <label>Glycemic load</label>
+        <select name="gl">
+          <option value="">—</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-success">Add dish</button>
+  </form>
+</div>
+{% endblock %}

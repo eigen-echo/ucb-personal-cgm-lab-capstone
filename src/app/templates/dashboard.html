@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — CGM Tracker{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="cards-row">
+  <div class="stat-card {% if mean_glucose and mean_glucose <= 125 %}good{% elif mean_glucose and mean_glucose <= 154 %}warn{% elif mean_glucose %}high{% endif %}">
+    <div class="value">{{ mean_glucose or "—" }}</div>
+    <div class="label">7-day mean glucose (mg/dL)</div>
+  </div>
+  <div class="stat-card {% if tir and tir >= 70 %}good{% elif tir and tir >= 50 %}warn{% elif tir %}high{% endif %}">
+    <div class="value">{{ tir or "—" }}{% if tir %}%{% endif %}</div>
+    <div class="label">Time in range (70–180)</div>
+  </div>
+  <div class="stat-card">
+    <div class="value" style="font-size:1.1rem">
+      {{ last_cgm.ts.strftime("%b %d %H:%M") if last_cgm else "—" }}
+    </div>
+    <div class="label">Last CGM reading</div>
+  </div>
+  <div class="stat-card">
+    <div class="value" style="font-size:1.1rem">
+      {{ last_run.run_ts.strftime("%b %d %H:%M") if last_run else "—" }}
+    </div>
+    <div class="label">Last model run</div>
+  </div>
+  {% set _ps = pending_spikes() %}
+  <a href="/spikes/review" style="text-decoration:none; flex:1; min-width:160px">
+    <div class="stat-card {{ 'warn' if _ps else '' }}" style="cursor:pointer">
+      <div class="value" style="font-size:2rem">{{ _ps or "0" }}</div>
+      <div class="label">Pending spike{{ "s" if _ps != 1 }} to review</div>
+    </div>
+  </a>
+</div>
+
+{% if runs_ridge or runs_sarimax %}
+<div class="card">
+  <h2>Model accuracy over time (test RMSE, mg/dL)</h2>
+  <canvas id="accuracyChart" height="90"></canvas>
+</div>
+<script>
+  const ridgeLabels = {{ runs_ridge | map(attribute='run_ts') | map('string') | list | tojson }};
+  const ridgeRmse   = {{ runs_ridge | map(attribute='rmse_test') | list | tojson }};
+  const sarimaxLabels = {{ runs_sarimax | map(attribute='run_ts') | map('string') | list | tojson }};
+  const sarimaxRmse   = {{ runs_sarimax | map(attribute='rmse_test') | list | tojson }};
+
+  new Chart(document.getElementById('accuracyChart'), {
+    type: 'line',
+    data: {
+      labels: ridgeLabels.length >= sarimaxLabels.length ? ridgeLabels : sarimaxLabels,
+      datasets: [
+        { label: 'Ridge (per-meal)', data: ridgeRmse,   borderColor: '#1a1a2e', tension: 0.3, fill: false },
+        { label: 'SARIMAX (hourly)', data: sarimaxRmse, borderColor: '#e65100', tension: 0.3, fill: false },
+      ]
+    },
+    options: {
+      plugins: { legend: { position: 'bottom' } },
+      scales: { y: { title: { display: true, text: 'RMSE (mg/dL)' } } }
+    }
+  });
+</script>
+{% endif %}
+
+<div style="display:flex; gap:1.5rem; flex-wrap:wrap;">
+  <div style="flex:1; min-width:300px;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+        <h2 style="margin:0">Today's meals</h2>
+        <a href="/meals/new" class="btn btn-primary btn-sm">+ Log meal</a>
+      </div>
+      {% if today_meals %}
+      <table>
+        <thead><tr><th>Time</th><th>Dish</th><th>Carbs (g)</th></tr></thead>
+        <tbody>
+          {% for m in today_meals %}
+          <tr>
+            <td>{{ m.ts.strftime("%H:%M") }}</td>
+            <td>{{ m.dish_names or "—" }}</td>
+            <td>{{ m.carbs_grams_logged or m.carbs_grams_estimated or "—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color:#999; font-size:0.88rem">No meals logged today.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div style="flex:1; min-width:300px;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+        <h2 style="margin:0">Today's activity</h2>
+        <a href="/activities/new" class="btn btn-primary btn-sm">+ Log activity</a>
+      </div>
+      {% if today_acts %}
+      <table>
+        <thead><tr><th>Time</th><th>Type</th><th>Duration (min)</th></tr></thead>
+        <tbody>
+          {% for a in today_acts %}
+          <tr>
+            <td>{{ a.ts.strftime("%H:%M") }}</td>
+            <td>{{ a.activity_type }}</td>
+            <td>{{ a.duration_min }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color:#999; font-size:0.88rem">No activity logged today.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit" if meal else "Log" }} Meal — CGM Tracker{% endblock %}
+{% block content %}
+<h1>{{ "Edit" if meal else "Log a" }} meal</h1>
+
+<div class="card" style="max-width:680px">
+  <form method="post" action="{{ '/meals/' + meal.id|string + '/edit' if meal else '/meals/new' }}">
+
+    <div class="field">
+      <label>Date &amp; time</label>
+      <input type="datetime-local" name="ts"
+             value="{{ meal.ts.strftime('%Y-%m-%dT%H:%M') if meal else now }}" required>
+    </div>
+
+    <div class="field">
+      <label>Dish name <span style="font-weight:400; color:#888">(type to search your food lookup)</span></label>
+      <input type="text" id="dish-search" name="dish_names" list="food-list"
+             value="{{ meal.dish_names or '' }}" placeholder="e.g. rice and dal">
+      <datalist id="food-list">
+        {% for f in food_items %}
+        <option value="{{ f.display_name }}">
+        {% endfor %}
+      </datalist>
+    </div>
+
+    <div class="form-row">
+      <div class="field">
+        <label>Meal type</label>
+        <select name="meal_type">
+          <option value="">— select —</option>
+          {% for t in ["breakfast","lunch","dinner","snack"] %}
+          <option value="{{ t }}" {{ "selected" if meal and meal.meal_type == t }}>{{ t.title() }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>Carbs logged (g) <span style="font-weight:400; color:#888">— auto-filled from lookup</span></label>
+        <input type="number" id="carbs-logged" name="carbs_grams_logged" step="0.5" min="0"
+               value="{{ meal.carbs_grams_logged or '' }}" placeholder="e.g. 65">
+      </div>
+      <div class="field">
+        <label>Carbs estimated (g) <span style="font-weight:400; color:#888">— override if needed</span></label>
+        <input type="number" name="carbs_grams_estimated" step="0.5" min="0"
+               value="{{ meal.carbs_grams_estimated or '' }}" placeholder="optional">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>
+        <input type="checkbox" name="fasted_meal" value="true"
+               {{ "checked" if meal and meal.fasted_meal }}>
+        &nbsp;This meal broke a fast
+      </label>
+    </div>
+
+    <div class="field">
+      <label>Notes</label>
+      <input type="text" name="notes" value="{{ meal.notes or '' }}" placeholder="optional">
+    </div>
+
+    <div style="display:flex; gap:0.75rem; margin-top:0.5rem">
+      <button type="submit" class="btn btn-success">Save meal</button>
+      <a href="/meals/" class="btn btn-primary" style="background:#ccc; color:#333">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+const foodData = {{ food_json | safe }};
+document.getElementById('dish-search').addEventListener('change', function () {
+  const match = foodData.find(f => f.display_name.toLowerCase() === this.value.toLowerCase());
+  if (match && match.carbs_g != null) {
+    document.getElementById('carbs-logged').value = match.carbs_g;
+  }
+});
+</script>
+
+<div class="card" style="max-width:680px; margin-top:0">
+  <h2>Add a new dish to the food lookup</h2>
+  <form method="post" action="/food/add">
+    <div class="form-row">
+      <div class="field">
+        <label>Display name</label>
+        <input type="text" name="display_name" placeholder="e.g. Idli (2 pieces)" required>
+      </div>
+      <div class="field">
+        <label>Carbs (g)</label>
+        <input type="number" name="carbs_g" step="0.5" min="0" placeholder="e.g. 30">
+      </div>
+      <div class="field">
+        <label>Protein (g)</label>
+        <input type="number" name="protein_g" step="0.5" min="0" placeholder="optional">
+      </div>
+      <div class="field">
+        <label>Fat (g)</label>
+        <input type="number" name="fat_g" step="0.5" min="0" placeholder="optional">
+      </div>
+      <div class="field">
+        <label>Glycemic load</label>
+        <select name="gl">
+          <option value="">—</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Add dish</button>
+  </form>
+</div>
+{% endblock %}

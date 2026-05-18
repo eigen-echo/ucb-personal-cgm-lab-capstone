@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}CGM Tracker{% endblock %}</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #222; }
+
+    nav {
+      background: #1a1a2e; color: #fff; padding: 0 1.5rem;
+      display: flex; align-items: center; gap: 0; height: 52px;
+    }
+    nav .brand { font-weight: 700; font-size: 1.1rem; margin-right: 2rem; color: #e0e0ff; }
+    nav a {
+      color: #c0c0e0; text-decoration: none; padding: 0 1rem; height: 52px;
+      display: flex; align-items: center; font-size: 0.9rem;
+    }
+    nav a:hover, nav a.active { color: #fff; background: #2a2a4e; }
+
+    .container { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; }
+
+    h1 { font-size: 1.5rem; margin-bottom: 1.25rem; color: #1a1a2e; }
+    h2 { font-size: 1.15rem; margin-bottom: 0.75rem; color: #1a1a2e; }
+
+    .card {
+      background: #fff; border-radius: 8px; padding: 1.25rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 1.5rem;
+    }
+    .cards-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .stat-card {
+      flex: 1; min-width: 160px; background: #fff; border-radius: 8px;
+      padding: 1rem 1.25rem; box-shadow: 0 1px 4px rgba(0,0,0,.08); text-align: center;
+    }
+    .stat-card .value { font-size: 2rem; font-weight: 700; color: #1a1a2e; }
+    .stat-card .label { font-size: 0.8rem; color: #666; margin-top: 0.25rem; }
+    .stat-card.good .value  { color: #2e7d32; }
+    .stat-card.warn .value  { color: #e65100; }
+    .stat-card.high .value  { color: #c62828; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th { background: #f0f0f8; text-align: left; padding: 0.5rem 0.75rem; font-weight: 600; }
+    td { padding: 0.45rem 0.75rem; border-bottom: 1px solid #eee; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+
+    .btn {
+      display: inline-block; padding: 0.5rem 1.1rem; border-radius: 5px;
+      font-size: 0.88rem; font-weight: 600; cursor: pointer;
+      border: none; text-decoration: none;
+    }
+    .btn-primary { background: #1a1a2e; color: #fff; }
+    .btn-primary:hover { background: #2a2a4e; }
+    .btn-success { background: #2e7d32; color: #fff; }
+    .btn-success:hover { background: #1b5e20; }
+    .btn-danger  { background: #c62828; color: #fff; font-size: 0.78rem; padding: 0.3rem 0.7rem; }
+    .btn-danger:hover  { background: #8b0000; }
+    .btn-sm { font-size: 0.78rem; padding: 0.3rem 0.7rem; }
+
+    form .field { margin-bottom: 1rem; }
+    form label  { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem; color: #444; }
+    form input[type=text], form input[type=number], form input[type=datetime-local],
+    form select, form textarea {
+      width: 100%; padding: 0.45rem 0.6rem; border: 1px solid #ccc;
+      border-radius: 4px; font-size: 0.9rem;
+    }
+    form input:focus, form select:focus { outline: none; border-color: #1a1a2e; }
+    .form-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .form-row .field { flex: 1; min-width: 180px; }
+
+    .badge {
+      display: inline-block; padding: 0.2rem 0.55rem; border-radius: 12px;
+      font-size: 0.75rem; font-weight: 600;
+    }
+    .badge-green  { background: #e8f5e9; color: #2e7d32; }
+    .badge-orange { background: #fff3e0; color: #e65100; }
+    .badge-red    { background: #ffebee; color: #c62828; }
+    .badge-gray   { background: #f5f5f5; color: #666; }
+
+    .alert { padding: 0.75rem 1rem; border-radius: 5px; margin-bottom: 1rem; }
+    .alert-info    { background: #e3f2fd; color: #0d47a1; }
+    .alert-success { background: #e8f5e9; color: #2e7d32; }
+    .alert-error   { background: #ffebee; color: #c62828; }
+
+    .spinner {
+      display: inline-block; width: 18px; height: 18px;
+      border: 3px solid #ccc; border-top-color: #1a1a2e;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    pre { background: #1a1a2e; color: #c0e0c0; padding: 1rem; border-radius: 6px;
+          font-size: 0.8rem; overflow-x: auto; max-height: 300px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+<nav>
+  {% set _ps = pending_spikes() %}
+  <span class="brand">CGM Tracker</span>
+  <a href="/"           {% if request.url.path == "/" %}class="active"{% endif %}>Dashboard</a>
+  <a href="/meals/"     {% if "/meals" in request.url.path %}class="active"{% endif %}>Meals</a>
+  <a href="/activities/" {% if "/activities" in request.url.path %}class="active"{% endif %}>Activity</a>
+  <a href="/cgm/upload" {% if "/cgm" in request.url.path %}class="active"{% endif %}>Upload CGM</a>
+  <a href="/food/"      {% if "/food" in request.url.path %}class="active"{% endif %}>Food Lookup</a>
+  <a href="/training/"  {% if "/training" in request.url.path %}class="active"{% endif %}>Training</a>
+  <a href="/spikes/review" {% if "/spikes" in request.url.path %}class="active"{% endif %}>
+    Spikes{% if _ps %} <span style="background:#c62828;color:#fff;border-radius:10px;padding:0.1rem 0.45rem;font-size:0.72rem;font-weight:700;margin-left:0.25rem">{{ _ps }}</span>{% endif %}
+  </a>
+  <a href="/config/"    {% if "/config" in request.url.path %}class="active"{% endif %}>Settings</a>
+</nav>
+<div class="container">
+  {% block content %}{% endblock %}
+</div>
+</body>
+</html>

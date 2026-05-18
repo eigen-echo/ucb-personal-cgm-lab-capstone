@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Upload CGM — CGM Tracker{% endblock %}
+{% block content %}
+<h1>Upload CGM data</h1>
+
+{% if result %}
+  {% if result.error %}
+  <div class="alert alert-error">
+    <strong>Parse error:</strong> {{ result.error }}<br>
+    Make sure the file is a Stelo CSV export (or any CSV with timestamp and glucose columns).
+  </div>
+  {% else %}
+  <div class="alert alert-success">
+    <strong>{{ result.filename }}</strong> processed successfully.<br>
+    Added <strong>{{ result.added }}</strong> new readings &nbsp;|&nbsp;
+    Skipped <strong>{{ result.skipped }}</strong> duplicates &nbsp;|&nbsp;
+    Date range: {{ result.date_range }}
+  </div>
+  {% if result.new_spikes %}
+  <div class="alert alert-info" style="margin-top:0.5rem">
+    <strong>{{ result.new_spikes }} unattributed spike{{ "s" if result.new_spikes != 1 }} detected</strong>
+    in this upload with no matching meal or activity logged. &nbsp;
+    <a href="/spikes/review" style="font-weight:700; color:#0d47a1">Review now →</a>
+  </div>
+  {% endif %}
+  {% endif %}
+{% endif %}
+
+<div class="card" style="max-width:560px">
+  <p style="margin-bottom:1rem; font-size:0.9rem; color:#444">
+    Upload your Stelo CSV export. Duplicate readings (same timestamp) are silently skipped.<br>
+    Accepted column names: <code>Timestamp (YYYY-MM-DDThh:mm:ss)</code> and
+    <code>Glucose Value (mg/dL)</code> — or any variant the parser can detect.
+  </p>
+  <form method="post" action="/cgm/upload" enctype="multipart/form-data">
+    <div class="field">
+      <label>CGM export file (.csv)</label>
+      <input type="file" name="file" accept=".csv" required
+             style="font-size:0.9rem; padding:0.3rem 0">
+    </div>
+    <button type="submit" class="btn btn-success">Upload</button>
+  </form>
+</div>
+{% endblock %}

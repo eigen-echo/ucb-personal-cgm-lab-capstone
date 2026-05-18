@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Activity — CGM Tracker{% endblock %}
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+  <h1 style="margin:0">Activity <span style="font-size:0.85rem; color:#666; font-weight:400">(last 7 days)</span></h1>
+  <a href="/activities/new" class="btn btn-primary">+ Log activity</a>
+</div>
+
+<div class="card">
+  {% if activities %}
+  <table>
+    <thead>
+      <tr><th>Date / Time</th><th>Type</th><th>Duration (min)</th><th>Notes</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for a in activities %}
+      <tr>
+        <td>{{ a.ts.strftime("%b %d %H:%M") }}</td>
+        <td><span class="badge badge-green">{{ a.activity_type }}</span></td>
+        <td>{{ a.duration_min }}</td>
+        <td style="color:#888; font-size:0.82rem">{{ a.notes or "" }}</td>
+        <td>
+          <form method="post" action="/activities/{{ a.id }}/delete"
+                onsubmit="return confirm('Delete this activity?')">
+            <button class="btn btn-danger">Del</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:#999">No activity logged in the last 7 days.</p>
+  {% endif %}
+</div>
+{% endblock %}

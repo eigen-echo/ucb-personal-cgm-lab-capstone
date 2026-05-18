@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Log Activity — CGM Tracker{% endblock %}
+{% block content %}
+<h1>Log activity</h1>
+
+<div class="card" style="max-width:480px">
+  <form method="post" action="/activities/new">
+    <div class="field">
+      <label>Date &amp; time</label>
+      <input type="datetime-local" name="ts" value="{{ now }}" required>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Type</label>
+        <select name="activity_type">
+          <option value="walk">Walk</option>
+          <option value="run">Run</option>
+          <option value="cycle">Cycle</option>
+          <option value="yoga">Yoga</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Duration (minutes)</label>
+        <input type="number" name="duration_min" min="1" step="1" placeholder="e.g. 25" required>
+      </div>
+    </div>
+    <div class="field">
+      <label>Notes</label>
+      <input type="text" name="notes" placeholder="optional">
+    </div>
+    <div style="display:flex; gap:0.75rem; margin-top:0.5rem">
+      <button type="submit" class="btn btn-success">Save</button>
+      <a href="/activities/" class="btn btn-primary" style="background:#ccc; color:#333">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

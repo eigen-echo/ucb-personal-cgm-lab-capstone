@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Configuration — CGM Tracker{% endblock %}
+{% block content %}
+<h1>Configuration</h1>
+
+{% if saved %}
+<div class="alert alert-success">Settings saved.</div>
+{% endif %}
+
+<div class="card" style="max-width:560px">
+  <h2>Spike detection thresholds</h2>
+  <p style="font-size:0.88rem; color:#555; margin-bottom:1.25rem">
+    After each CGM upload, peaks above these thresholds that have no matching meal or
+    activity logged nearby are flagged for review. Peaks between the activity and meal
+    thresholds will be presented with all four attribution options.
+  </p>
+  <form method="post" action="/config/save">
+    {% for item in items %}
+    <div class="field">
+      <label>{{ item.label }}</label>
+      <p style="font-size:0.8rem; color:#888; margin: 0.1rem 0 0.4rem">{{ item.description }}</p>
+      <input type="number" name="{{ item.key }}" value="{{ item.value }}"
+             step="1" min="1" style="max-width:120px" required>
+      <span style="font-size:0.85rem; color:#666"> mg/dL</span>
+    </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-success" style="margin-top:0.5rem">Save</button>
+  </form>
+</div>
+{% endblock %}
