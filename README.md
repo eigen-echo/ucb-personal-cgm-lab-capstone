@@ -4,6 +4,26 @@ A personal glucose modeling project built on my own CGM data, South Indian meal 
 
 ---
 
+## Contents
+
+- [Why I built this](#why-i-built-this)
+- [What I'm trying to figure out](#what-im-trying-to-figure-out)
+- [Where the data comes from](#where-the-data-comes-from)
+- [Status](#status)
+- [Key findings](#key-findings)
+- [Repo layout](#repo-layout)
+- [Quick start](#quick-start)
+- [Methods](#methods)
+- [SARIMAX time-series experiments](#sarimax-time-series-experiments)
+- [Why not just run a plain regression on the hourly data?](#why-not-just-run-a-plain-regression-on-the-hourly-data)
+- [What this actually means for me](#what-this-actually-means-for-me-plain-language)
+- [What I learned](#what-i-learned)
+- [Honest limitations](#honest-limitations)
+- [Glossary](docs/glossary.md)
+- [Disclaimer](#disclaimer)
+
+---
+
 ## Why I built this
 
 I'm a Type 2 diabetic. Ten months of continuous glucose monitoring and intermittent fasting brought my HbA1c from 10 down to 6.7. I want to reach 6.0, and I've found that generic diabetes apps don't model me well. My diet is rice, lentils, dosa, sambar, and curries. The standard glycemic-index tables were built around a Western plate.
@@ -69,6 +89,10 @@ These are the headline results from the per-meal regression model, fitted on 218
 
 **Dish ranking (adjusted).** Using the model residuals to rank dishes removes the confounding from when and how I tend to eat each food. Chai and dosa tend to spike less than their raw averages suggest - they often appear at breakfast when pre-meal glucose happens to be lower. Meals logged as "salad" or veg biryani carry positive residuals, meaning they spike more than the model expects given their context — likely a logging artifact (hidden carbs in dressings, larger portions than assumed) rather than a property of the dish itself.
 
+**Hourly SARIMAX.** The carb signal that was invisible at daily resolution became identifiable at hourly: `carb_load_decayed` (tau=75 min exponential decay) has a coefficient of +0.137 mg/dL per g-equivalent (p < 0.001). Multi-step RMSE across the 21-day holdout is 41 mg/dL vs 48 for the naive mean baseline. Walk effect is correctly signed but not significant given the sparse walk data (48 events in 86 days). The medication variable (`glipizide_active`) is confounded with the diurnal glucose pattern — Glipizide is taken during waking hours when glucose is naturally elevated — and cannot be cleanly identified. See the "SARIMAX time-series experiments" section below for the full analysis.
+
+**Plain regression on hourly data is a trap.** A behavior-only regression barely beats guessing the mean (test RMSE 46 vs 48) with severely autocorrelated residuals. Adding "glucose one hour ago" inflates apparent accuracy (RMSE 24) but collapses to worse-than-baseline (RMSE 64) once it must forecast forward without the true recent reading. A gradient booster does no better and draws 80% of its predictions from the lag, not behavior. The headline takeaway for the individual: glucose is momentum-dominated, carbs are the one consistently trustworthy lever, and the per-meal model is the right tool for actual decisions. See "Why not just run a plain regression on the hourly data?" and "What this actually means for me" below.
+
 ---
 
 ## Repo layout
@@ -86,21 +110,29 @@ These are the headline results from the per-meal regression model, fitted on 218
 │   │   └── raw_export_stelo.csv    original Stelo export (not committed)
 │   └── processed/                  feature matrices, rebuilt from raw
 │       ├── per_meal_features.csv   one row per meal (target: peak_delta)
-│       └── daily_features.csv      one row per physiological day (4 AM boundary)
+│       ├── daily_features.csv      one row per physiological day (4 AM boundary)
+│       └── hourly_features.csv     one row per hour (target: glucose_hourly_mean)
 ├── scripts/
-│   └── 00-build-features.py        reads data/raw/, writes data/processed/
+│   ├── 00-build-features.py        reads data/raw/, writes per_meal + daily features
+│   └── 01-build-hourly.py          reads data/raw/, writes hourly_features.csv
 ├── notebooks/
 │   ├── 00-exploratory-data-analysis.ipynb
-│   └── 01-regression-model.ipynb
+│   ├── 01-regression-model.ipynb
+│   ├── 02-sarimax-model.ipynb      daily SARIMAX (contrast case)
+│   ├── 03-sarimax-hourly.ipynb     hourly SARIMAX with glipizide comparison
+│   └── 04-regression-hourly.ipynb  Ridge/GBM on hourly data (autocorrelation pitfall analysis)
 ├── models/
 │   ├── per_meal_model.joblib        fitted Ridge + GBM pipelines
-│   └── per_meal_metrics.json        train/test RMSE, MAE, R2, walk dose-response
+│   ├── per_meal_metrics.json        train/test RMSE, MAE, R2, walk dose-response
+│   ├── sarimax_hourly.pkl           fitted SARIMAX(1,0,2)(1,0,1,24) model
+│   ├── sarimax_hourly_meta.pkl      best-model metadata (order, AIC, column lists)
+│   └── sarimax_hourly_metrics.json  hourly SARIMAX train/test RMSE, MAE, 21-day counterfactuals
 └── README.md
 ```
 
 The CSVs in `data/raw/` are the editable layer. The processed feature matrices are fully reproducible from a single script run.
 
-For a full column-by-column description of `per_meal_features` and `daily_features`, see [docs/data-dictionary.md](docs/data-dictionary.md).
+For a full column-by-column description of all three feature matrices, see [docs/data-dictionary.md](docs/data-dictionary.md).
 
 ---
 
@@ -115,8 +147,16 @@ Dependencies: pandas, numpy, scikit-learn, shap, matplotlib, seaborn, pyarrow (f
 
 Then open the notebooks in order:
 
-- [00-exploratory-data-analysis.ipynb](notebooks/00-exploratory-data-analysis.ipynb) — data quality checks, EDA, feature validation, stationarity
+- [00-exploratory-data-analysis.ipynb](notebooks/00-exploratory-data-analysis.ipynb) — data quality checks, EDA, feature validation, stationarity tests, hourly feature visualizations
 - [01-regression-model.ipynb](notebooks/01-regression-model.ipynb) — Ridge + GBM, SHAP, walk ROI counterfactuals, confounder-adjusted dish ranking
+- [02-sarimax-model.ipynb](notebooks/02-sarimax-model.ipynb) — daily SARIMAX (contrast case; shows why daily resolution fails)
+- [03-sarimax-hourly.ipynb](notebooks/03-sarimax-hourly.ipynb) — hourly SARIMAX, carb signal recovery, glipizide confounding experiment, counterfactual scenarios
+- [04-regression-hourly.ipynb](notebooks/04-regression-hourly.ipynb) — Ridge/GBM on hourly data; demonstrates the autocorrelation pitfall (no-lag vs lag, oracle vs recursive)
+
+Build the hourly feature matrix before running notebook 03:
+```bash
+python scripts/01-build-hourly.py
+```
 
 ---
 
@@ -134,21 +174,83 @@ Then open the notebooks in order:
 
 ---
 
-## What's next: SARIMAX on daily glucose
+## SARIMAX time-series experiments
 
-The per-meal regression answers the meal-level questions, but it can't tell me whether my overall trajectory is actually moving toward 6.0. That needs a time-series model on the daily data.
+The per-meal regression answers meal-level questions. Understanding whether my overall glucose trajectory is actually moving toward 6.0 requires a time-series model that captures how today's behaviors affect tomorrow's readings through the autocorrelation structure of daily glucose.
 
-The plan is a SARIMAX model on `mean_glucose` (or `time_in_range_pct`) from `daily_features.csv`, with the behavioral columns as exogenous regressors:
+### Why daily resolution failed
 
-- `total_walk_min` — total minutes walked that day
-- `total_carbs` — sum of carb estimates across all meals
-- `is_if_day` — whether I skipped breakfast and extended the fast to lunch
-- `overnight_fast_hours` — length of the previous night's fast
-- `doses_taken` — medication compliance for the day
+The first attempt fit a SARIMAX on the 84 daily means in `daily_features.csv`. It collapsed immediately: a 30-minute walk occupies 2% of a day and is indistinguishable from noise at that granularity. The model produced a flat forecast that was barely better than the training mean. The carb and walk coefficients had correct signs but were nowhere near significant. The series did not have enough time steps to support seasonal estimation either — 84 daily observations trying to learn a 7-day seasonal pattern left fewer than 12 full cycles.
 
-The EDA notebook already checks stationarity (ADF and KPSS tests on the `mean_glucose` series) and confirms the 4 AM physiological-day boundary is the right aggregation to use. The series has enough structure that a seasonal component is worth testing, since weekends tend to look different from weekdays in my eating and walking patterns.
+### Rebuilding at hourly resolution
 
-The goal isn't just to fit the series. I want to use the fitted model to run scenarios: given a week where I walk 45 minutes every day after lunch and keep total carbs under 80g, what does the model predict for my 7-day mean? That's the A1C trajectory question answered in a way that accounts for the autocorrelation in daily glucose rather than treating each day as independent.
+`scripts/01-build-hourly.py` resamples the same source data to a complete hourly grid (2,076 hours). The key feature is `carb_load_decayed`: a decay-weighted carb sum over the preceding 6 hours, `Σ carbs × exp(−δ_min / 75)`, where tau=75 minutes reflects the post-meal glucose peak at 45–90 minutes. At exact meal time the feature equals the meal's carb content; by 2 hours it has decayed to 20% of its peak value. This matches the shape of the actual glucose excursion closely enough that the model can identify it.
+
+The fitted model is SARIMAX(1,0,2)(1,0,1,24): p=1, q=2, seasonal AR and MA at lag 24. Seasonal period of 24 is justified by the data — the intraday profile shows a ~30 mg/dL peak-to-trough swing (31.96% of total variance) driven by the fasting/feeding cycle.
+
+**Hourly SARIMAX performance:**
+
+| forecast type | RMSE | MAE |
+|---|---|---|
+| 1-step-ahead (in-sample anchor) | 22.4 mg/dL | 16.8 mg/dL |
+| Multi-step (504-hour holdout) | 41.4 mg/dL | 33.6 mg/dL |
+| Naive (train mean) | 48.0 mg/dL | 39.9 mg/dL |
+
+Multi-step RMSE of 41 vs naive 48 is a modest improvement. That reflects the nature of the problem: glucose 3 weeks out is primarily determined by behavior choices that the model can't observe — the exog regressors must be specified as hypothetical counterfactuals.
+
+**What the hourly model recovered:** The carb coefficient is +0.137 mg/dL per g-equivalent (p < 0.001, correct sign). This is the main payoff from moving to hourly resolution: the carb signal was invisible at daily granularity and identifiable at hourly. A 50g carb meal produces a predicted glucose response of +6.9 mg/dL above baseline in the SARIMAX framework (the actual excursion is larger; the per-meal Ridge model captures the full peak better at +33 mg/dL per 50g).
+
+Walk is correctly signed (−0.046 mg/dL per minute) but not significant (p≈0.4). With only 48 walks across 86 days, most hours have `walk_min_last_2h = 0`. The feature is too sparse for the SARIMAX to separate its effect from the hour-to-hour noise.
+
+### The glipizide confounding experiment
+
+I take Glipizide with 2 of 3 meals per day (meal-contingent, physician recommendation), not on a fixed 12-hour clock. Jardiance (SGLT2i) is once-daily with ~24-hour renal glucose excretion — it is always active and its effect is a fixed background already absorbed into the intercept. The `glipizide_active` binary flag (1 if within 12 hours of a taken dose) is therefore a crude proxy.
+
+Initial SARIMAX fits (before adding explicit time-of-day controls) produced a `glipizide_active` coefficient of +137 mg/dL — flagrantly wrong sign, highly significant. The problem is structural: Glipizide is taken at 10 AM and 4 PM, so `glipizide_active=1` covers roughly 8 AM–8 PM — the same waking hours when glucose is naturally elevated by the diurnal feeding cycle. The medication flag was acting as a proxy for time-of-day, not measuring drug effect.
+
+Adding `hour_sin` and `hour_cos` as explicit exogenous regressors partially corrects this (coefficient drops from +137 to +109), but confounding is not fully resolved. The Glipizide window tracks daytime hours and `is_fasting` tracks nighttime hours — they are nearly anti-correlated along the diurnal cycle.
+
+Refitting without `glipizide_active` reveals the entanglement: the `is_fasting` coefficient collapses from −4.26 to +0.015 (essentially zero) when Glipizide is dropped. They were sharing the daytime/nighttime split signal between them. The no-medication model's AIC is 12698.6 vs 12686.1 for the full model (delta = +12.6 in favor of keeping it), but the counterfactual scenarios flatten completely — all three behavioral scenarios produce ~176 mg/dL mean forecast, indistinguishable from the status quo. The differentiation in the full model (B/C scenarios predicting ~144 mg/dL vs A at 175) was driven by the collinear fasting effect, not causal identification of fasting benefit.
+
+**Conclusion:** The hourly SARIMAX can cleanly identify the carb signal. Walk and fasting are underpowered and entangled with the diurnal pattern. The per-meal Ridge model remains the better tool for behavioral what-ifs (walk dose-response, meal carb targets) — it works at the right granularity and has a cleaner separation between pre-meal state and post-meal intervention. The SARIMAX's value is in capturing the glucose autocorrelation structure for multi-day trajectory projections.
+
+---
+
+## Why not just run a plain regression on the hourly data?
+
+If SARIMAX is finicky, the obvious question is: why not fit an ordinary regression — or a gradient-boosted tree — directly on the 2,076 hourly rows? Notebook 04 builds exactly that, three models, specifically to demonstrate why the obvious approach is a trap on autocorrelated data.
+
+**Model A — regression with behavior features only (no recent-glucose input).** Predict each hour's glucose from carbs, walks, fasting, medication, and time of day, nothing else. It barely beats guessing the average: test RMSE 46 mg/dL vs 48 for a flat predict-the-mean baseline. The residual diagnostic (Durbin-Watson 0.51, where 2.0 is healthy and below ~1.0 is severe) confirms the model leaves almost all the structure unexplained. Glucose this hour is mostly determined by glucose last hour, and a model that cannot see last hour is flying blind.
+
+**Model B — the same regression, plus "glucose one hour ago" as an input.** On paper this is transformative: test RMSE drops to 24 mg/dL, R² to 0.74. But it is cheating. To forecast next week you do not have next week's readings to feed in. When the model is forced to run forward on its own predictions (the realistic recursive mode), error blows up to **64 mg/dL — worse than just guessing the average (48)**. A model that looked twice as good as the baseline is actually a third worse once it has to stand on its own. Adding the lag also distorted the behavior coefficients unevenly — the walk coefficient shrank by 73% and stayed wrong-signed, the carb coefficient drifted further from the SARIMAX estimate — so the model is also worse for inference, not just forecasting.
+
+**Model C — gradient-boosted trees, same inputs as B.** The nonlinear model lands at 24 mg/dL test RMSE — statistically identical to the simple linear regression — while massively overfitting the training data (train R² 0.99). A breakdown of what the tree relies on (permutation importance) shows 80% of its predictive weight comes from recent-glucose lag features, not behavior. The extra modeling power buys nothing; the carb × time-of-day interactions it was meant to capture contribute less than noise.
+
+**The unifying lesson.** Glucose is dominated by momentum — where it just was. Any model handed the recent reading looks brilliant and learns nothing about behavior; any model denied it looks useless. This is precisely why the per-meal model (notebook 01) is the workhorse for "what should I do" questions: it sidesteps the momentum problem by measuring each meal's *rise from its own starting point* rather than the absolute glucose level.
+
+---
+
+## What this actually means for me (plain language)
+
+Stripping out the statistics, here is what three months of my own data is telling me.
+
+**"How good is the model?" decoded.** When I say a model explains 7% or 74% of the variation, the plain version is this: the dumbest possible forecast is "tomorrow will equal my three-month average." A model explaining 7% is barely better than that dumb guess. A model explaining 74% sounds great — but that number only appears when the model is quietly handed my actual recent reading. Take that away (which is the situation whenever I am planning ahead) and every model I built falls back to roughly the dumb-guess line, or worse.
+
+**The single biggest finding: glucose has momentum.** By far the strongest predictor of my glucose in any hour is my glucose the hour before. Food, walking, fasting, and medication timing all matter, but their effect is small next to sheer momentum and my daily rhythm (higher through the day, lower overnight). There is no behavioral magic lever in this data that swamps that momentum, because one does not exist.
+
+**What I can actually trust:**
+
+- **Carbs are the one lever that shows up clean every single time.** Across every model and every variation, more carb load → higher glucose, correct direction, never ambiguous. This is the most reliable, actionable result in the whole project.
+- **The per-meal view is the trustworthy one.** When I ask "what will *this* meal do to me," the per-meal model gives an answer I can rely on, because it measures the *jump* from wherever I started, not the absolute number. That is the model to consult at the table — not the hourly forecasts.
+- **Walking helps, but I cannot put a precise number on it.** Every hourly model got the walk effect muddied, partly because I tend to walk *after* meals I expect to spike, so the data makes walking look associated with high glucose. The per-meal estimate (a ~25-minute walk ≈ a few mg/dL off the peak) is the best I have, and even that is soft.
+
+**Practical recommendations for myself:**
+
+1. **Treat carbs as the primary dial.** It is the one input the data agrees on without exception. For pushing toward A1C 6.0, consistent carb moderation pays off more predictably than any other single change.
+2. **Use the per-meal model for decisions, not the trajectory forecasts.** "Should I walk after this dinner?" → per-meal model, good answer. "What will my average be in three weeks if I do X?" → no model here answers that reliably; do not over-trust any number that claims to.
+3. **Consistency beats heroics.** Because glucose carries so much momentum, a steady run of moderate days moves my average more than occasional dramatic interventions wedged between ordinary ones. Smoothing out the bad days matters more than perfecting the good ones.
+4. **To learn the walk effect properly, I would have to randomize it.** Walking only when I feel I need to permanently contaminates the data. A few weeks of deciding by coin-flip whether to walk after a meal would teach me more than any further modeling of what I already have.
+5. **None of this replaces my endocrinologist.** These are day-to-day decision aids, not a treatment plan.
 
 ---
 
@@ -178,35 +280,7 @@ Sourcing your own data removes the safety net of a pre-cleaned dataset. There is
 
 ## Glossary
 
-**Clinical / CGM terms**
-
-| acronym | full term | meaning |
-|---|---|---|
-| CGM | Continuous Glucose Monitor | A wearable sensor that measures interstitial glucose every few minutes without fingersticks |
-| TIR | Time In Range | Percentage of CGM readings between 70 and 180 mg/dL; the standard target is >70% |
-| GMI | Glucose Management Indicator | An estimated HbA1c derived from CGM mean glucose: `3.31 + 0.02392 × mean_mg_dL` (Bergenstal 2018) |
-| A1C / HbA1c | Hemoglobin A1c | A lab test measuring average blood glucose over the past ~3 months; target for well-controlled T2D is <7% |
-| IF | Intermittent Fasting | An eating pattern that restricts food to a defined window; here used to mean skipping breakfast and eating first at lunch |
-| mg/dL | milligrams per deciliter | The glucose concentration unit used in the US |
-| peak_delta | — | The rise in glucose from pre-meal baseline to peak within ~3 hours; the primary modeling target |
-
-**Machine learning / statistics terms**
-
-| acronym | full term | meaning |
-|---|---|---|
-| EDA | Exploratory Data Analysis | Initial investigation of a dataset through summary statistics and visualizations |
-| RMSE | Root Mean Squared Error | Square root of the average squared prediction error; penalises large misses more than MAE |
-| MAE | Mean Absolute Error | Average absolute difference between predicted and actual values, in the original unit (mg/dL here) |
-| R² | Coefficient of determination | Proportion of variance in the target explained by the model; 1.0 is perfect, 0 means the model does no better than predicting the mean |
-| SHAP | SHapley Additive exPlanations | A method from cooperative game theory that assigns each feature a contribution value for each individual prediction |
-| GBM | Gradient Boosting Machine | An ensemble of decision trees built sequentially; here specifically `HistGradientBoostingRegressor` from scikit-learn |
-| SARIMAX | Seasonal AutoRegressive Integrated Moving Average with eXogenous variables | A time-series forecasting model that accounts for trend, seasonality, autocorrelation, and external regressors |
-| ACF | AutoCorrelation Function | Measures correlation between a time series and its own lagged values; used to identify the MA order |
-| PACF | Partial AutoCorrelation Function | Like ACF but removes indirect correlations through intermediate lags; used to identify the AR order |
-| ADF | Augmented Dickey-Fuller test | A statistical test for whether a time series is stationary (no unit root); p < 0.05 means stationary |
-| AR / MA | AutoRegressive / Moving Average | The two core components of ARIMA: AR uses past values, MA uses past forecast errors |
-| CV | Cross-Validation | Technique for estimating model performance by splitting data into multiple train/validation folds |
-| DOW | Day of Week | |
+Clinical and ML/statistics terms are defined in [docs/glossary.md](docs/glossary.md).
 
 ---
 
