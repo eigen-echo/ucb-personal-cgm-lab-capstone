@@ -1,9 +1,22 @@
 {% extends "base.html" %}
-{% block title %}Meals — CGM Tracker{% endblock %}
+{% block title %}Meals - CGM Tracker{% endblock %}
 {% block content %}
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
-  <h1 style="margin:0">Meals <span style="font-size:0.85rem; color:#666; font-weight:400">(last 7 days)</span></h1>
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+  <h1 style="margin:0">Meals</h1>
   <a href="/meals/new" class="btn btn-primary">+ Log meal</a>
+</div>
+
+<!-- Week navigation -->
+<div class="card" style="padding:0.6rem 1rem; margin-bottom:1rem; display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+  <a href="/meals/?week={{ prev_week }}" class="btn btn-primary btn-sm" style="background:#555">← Prev</a>
+  <span style="font-weight:600; font-size:0.95rem; flex:1; text-align:center">{{ week_label }}</span>
+  {% if next_week %}
+    <a href="/meals/?week={{ next_week }}" class="btn btn-primary btn-sm" style="background:#555">Next →</a>
+  {% else %}
+    <span class="btn btn-primary btn-sm" style="background:#ccc; color:#999; cursor:default">Next →</span>
+  {% endif %}
+  <input type="date" id="jump-date" style="font-size:0.85rem; padding:0.25rem 0.4rem; border:1px solid #ccc; border-radius:4px"
+         title="Jump to week">
 </div>
 
 <div class="card">
@@ -23,15 +36,15 @@
     <tbody>
       {% for m in meals %}
       <tr>
-        <td>{{ m.ts.strftime("%b %d %H:%M") }}</td>
-        <td>{{ m.dish_names or "—" }}</td>
+        <td>{{ m.ts | localtime }}</td>
+        <td>{{ m.dish_names or "-" }}</td>
         <td>
           {% if m.meal_type %}
             <span class="badge badge-gray">{{ m.meal_type }}</span>
-          {% else %}—{% endif %}
+          {% else %}-{% endif %}
         </td>
-        <td>{{ m.carbs_grams_logged or m.carbs_grams_estimated or "—" }}</td>
-        <td>{{ "yes" if m.fasted_meal else "—" }}</td>
+        <td>{{ m.carbs_grams_logged or m.carbs_grams_estimated or "-" }}</td>
+        <td>{{ "yes" if m.fasted_meal else "-" }}</td>
         <td style="color:#888; font-size:0.82rem">{{ m.notes or "" }}</td>
         <td style="white-space:nowrap">
           <a href="/meals/{{ m.id }}/edit" class="btn btn-primary btn-sm">Edit</a>
@@ -45,7 +58,19 @@
     </tbody>
   </table>
   {% else %}
-  <p style="color:#999">No meals logged in the last 7 days.</p>
+  <p style="color:#999">No meals logged for {{ week_label }}.</p>
   {% endif %}
 </div>
+
+<script>
+document.getElementById('jump-date').addEventListener('change', function () {
+  const d = new Date(this.value + 'T00:00:00');
+  // Find Monday of selected week
+  const day = d.getDay(); // 0=Sun
+  const offset = (day === 0) ? -6 : 1 - day;
+  d.setDate(d.getDate() + offset);
+  const monday = d.toISOString().slice(0, 10);
+  window.location.href = '/meals/?week=' + monday;
+});
+</script>
 {% endblock %}

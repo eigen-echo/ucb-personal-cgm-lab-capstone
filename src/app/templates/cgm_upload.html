@@ -1,7 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Upload CGM — CGM Tracker{% endblock %}
+{% block title %}Upload CGM - CGM Tracker{% endblock %}
 {% block content %}
 <h1>Upload CGM data</h1>
+
+{% if cleared %}
+<div class="alert alert-info">
+  All CGM readings and spike events have been cleared. You can now re-upload your files.
+</div>
+{% endif %}
 
 {% if result %}
   {% if result.error %}
@@ -15,6 +21,7 @@
     Added <strong>{{ result.added }}</strong> new readings &nbsp;|&nbsp;
     Skipped <strong>{{ result.skipped }}</strong> duplicates &nbsp;|&nbsp;
     Date range: {{ result.date_range }}
+    {% if result.source_tz %}&nbsp;|&nbsp; Timezone: {{ result.source_tz }}{% endif %}
   </div>
   {% if result.new_spikes %}
   <div class="alert alert-info" style="margin-top:0.5rem">
@@ -30,7 +37,7 @@
   <p style="margin-bottom:1rem; font-size:0.9rem; color:#444">
     Upload your Stelo CSV export. Duplicate readings (same timestamp) are silently skipped.<br>
     Accepted column names: <code>Timestamp (YYYY-MM-DDThh:mm:ss)</code> and
-    <code>Glucose Value (mg/dL)</code> — or any variant the parser can detect.
+    <code>Glucose Value (mg/dL)</code> - or any variant the parser can detect.
   </p>
   <form method="post" action="/cgm/upload" enctype="multipart/form-data">
     <div class="field">
@@ -38,7 +45,35 @@
       <input type="file" name="file" accept=".csv" required
              style="font-size:0.9rem; padding:0.3rem 0">
     </div>
+    <div class="field">
+      <label>Timestamps in this file are in</label>
+      <select name="source_tz" style="width:100%; padding:0.4rem 0.5rem; font-size:0.9rem">
+        {% for tz in tz_choices %}
+        <option value="{{ tz }}" {{ "selected" if tz == configured_tz }}>{{ tz }}</option>
+        {% endfor %}
+      </select>
+      <small style="color:#666; display:block; margin-top:0.3rem">
+        Timestamps will be interpreted as this timezone and stored as UTC.
+        Defaults to your configured app timezone.
+      </small>
+    </div>
     <button type="submit" class="btn btn-success">Upload</button>
+  </form>
+</div>
+
+<div class="card" style="max-width:560px; border-left:4px solid #c62828">
+  <h2 style="color:#c62828">Clear CGM data</h2>
+  <p style="font-size:0.88rem; color:#555; margin-bottom:1rem">
+    Deletes <strong>all CGM readings and spike events</strong> from the database.
+    Meals, activities, medications, fasting windows, and all other data are
+    <strong>not affected</strong>.<br><br>
+    Use this before re-uploading corrected files to avoid duplicate entries.
+  </p>
+  <form method="post" action="/cgm/clear"
+        onsubmit="return confirm('Delete all CGM readings and spike events?\n\nThis cannot be undone. Meals and activities will not be affected.')">
+    <button type="submit" class="btn" style="background:#c62828; color:#fff">
+      Clear all CGM data
+    </button>
   </form>
 </div>
 {% endblock %}

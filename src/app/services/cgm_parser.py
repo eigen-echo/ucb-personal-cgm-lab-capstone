@@ -17,7 +17,7 @@ _GLUCOSE_CANDIDATES = [
     "glucose_mg_dl",
     "Glucose",
     "glucose",
-    "CGM Glucose Value (mmol/L)",   # handled separately — unit conversion
+    "CGM Glucose Value (mmol/L)",   # handled separately - unit conversion
     "Value",
 ]
 

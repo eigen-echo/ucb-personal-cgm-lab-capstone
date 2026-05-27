@@ -1,23 +1,66 @@
 {% extends "base.html" %}
-{% block title %}Activity — CGM Tracker{% endblock %}
+{% block title %}Activity - CGM Tracker{% endblock %}
 {% block content %}
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
-  <h1 style="margin:0">Activity <span style="font-size:0.85rem; color:#666; font-weight:400">(last 7 days)</span></h1>
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+  <h1 style="margin:0">Activity</h1>
   <a href="/activities/new" class="btn btn-primary">+ Log activity</a>
+</div>
+
+<!-- Week navigation -->
+<div class="card" style="padding:0.6rem 1rem; margin-bottom:1rem; display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+  <a href="/activities/?week={{ prev_week }}" class="btn btn-primary btn-sm" style="background:#555">← Prev</a>
+  <span style="font-weight:600; font-size:0.95rem; flex:1; text-align:center">{{ week_label }}</span>
+  {% if next_week %}
+    <a href="/activities/?week={{ next_week }}" class="btn btn-primary btn-sm" style="background:#555">Next →</a>
+  {% else %}
+    <span class="btn btn-primary btn-sm" style="background:#ccc; color:#999; cursor:default">Next →</span>
+  {% endif %}
+  <input type="date" id="jump-date"
+         style="font-size:0.85rem; padding:0.25rem 0.4rem; border:1px solid #ccc; border-radius:4px"
+         title="Jump to week">
 </div>
 
 <div class="card">
   {% if activities %}
+  <div style="overflow-x:auto">
   <table>
     <thead>
-      <tr><th>Date / Time</th><th>Type</th><th>Duration (min)</th><th>Notes</th><th></th></tr>
+      <tr>
+        <th>Date / Time</th>
+        <th>Type</th>
+        <th>Duration</th>
+        <th>Steps</th>
+        <th>Dist (km)</th>
+        <th>HR (bpm)</th>
+        <th>Cal</th>
+        <th>Pace</th>
+        <th>Notes</th>
+        <th></th>
+      </tr>
     </thead>
     <tbody>
       {% for a in activities %}
       <tr>
-        <td>{{ a.ts.strftime("%b %d %H:%M") }}</td>
+        <td>{{ a.ts | localtime }}</td>
         <td><span class="badge badge-green">{{ a.activity_type }}</span></td>
-        <td>{{ a.duration_min }}</td>
+        <td>{{ a.duration_min | int }} min</td>
+        <td>{{ "{:,}".format(a.steps) if a.steps else "-" }}</td>
+        <td>{{ "%.2f"|format(a.distance_km) if a.distance_km else "-" }}</td>
+        <td>
+          {% if a.avg_heart_rate_bpm %}
+            <span class="badge {% if a.avg_heart_rate_bpm >= 140 %}badge-red{% elif a.avg_heart_rate_bpm >= 110 %}badge-orange{% else %}badge-green{% endif %}">
+              {{ a.avg_heart_rate_bpm }}
+            </span>
+          {% else %}-{% endif %}
+        </td>
+        <td>{{ a.calories_burned | int if a.calories_burned else "-" }}</td>
+        <td style="white-space:nowrap; color:#666; font-size:0.85rem">
+          {% if a.avg_pace_min_per_km %}
+            {%- set mm = a.avg_pace_min_per_km | int -%}
+            {%- set ss = ((a.avg_pace_min_per_km - mm) * 60) | round | int -%}
+            {{ mm }}'{{ "%02d"|format(ss) }}"
+          {% else %}-{% endif %}
+        </td>
         <td style="color:#888; font-size:0.82rem">{{ a.notes or "" }}</td>
         <td>
           <form method="post" action="/activities/{{ a.id }}/delete"
@@ -29,8 +72,19 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}
-  <p style="color:#999">No activity logged in the last 7 days.</p>
+  <p style="color:#999">No activity logged for {{ week_label }}.</p>
   {% endif %}
 </div>
+
+<script>
+document.getElementById('jump-date').addEventListener('change', function () {
+  const d = new Date(this.value + 'T00:00:00');
+  const day = d.getDay(); // 0=Sun
+  const offset = (day === 0) ? -6 : 1 - day;
+  d.setDate(d.getDate() + offset);
+  window.location.href = '/activities/?week=' + d.toISOString().slice(0, 10);
+});
+</script>
 {% endblock %}

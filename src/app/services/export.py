@@ -37,23 +37,41 @@ def _export_cgm(db: Session) -> int:
     return _save(df, "cgm_5min.csv")
 
 
+def _time_bucket(hour: int) -> str:
+    if 5 <= hour < 11:
+        return "morning"
+    elif 11 <= hour < 15:
+        return "afternoon"
+    elif 15 <= hour < 20:
+        return "evening"
+    return "night"
+
+
 def _export_meals(db: Session) -> int:
     rows = db.query(Meal).order_by(Meal.ts).all()
-    df = pd.DataFrame([{
-        "ts":                    r.ts.isoformat(),
-        "dish_names":            r.dish_names,
-        "meal_type":             r.meal_type,
-        "carbs_grams_logged":    r.carbs_grams_logged,
-        "carbs_grams_estimated": r.carbs_grams_estimated,
-        "fasted_meal":           r.fasted_meal,
-        "notes":                 r.notes,
-    } for r in rows])
+    records = []
+    for r in rows:
+        records.append({
+            "meal_id":               r.id,
+            "ts":                    r.ts.isoformat(),
+            "date":                  r.ts.date().isoformat(),
+            "dow":                   r.ts.strftime("%A"),
+            "time_bucket":           _time_bucket(r.ts.hour),
+            "dish_names":            r.dish_names,
+            "meal_type":             r.meal_type,
+            "carbs_grams_logged":    r.carbs_grams_logged,
+            "carbs_grams_estimated": r.carbs_grams_estimated,
+            "fasted_meal":           int(bool(r.fasted_meal)),
+            "notes":                 r.notes,
+        })
+    df = pd.DataFrame(records)
     return _save(df, "meals_v2.csv")
 
 
 def _export_activities(db: Session) -> int:
     rows = db.query(Activity).order_by(Activity.ts).all()
     df = pd.DataFrame([{
+        "activity_id":  r.id,
         "ts":           r.ts.isoformat(),
         "type":         r.activity_type,
         "duration_min": r.duration_min,
@@ -64,21 +82,31 @@ def _export_activities(db: Session) -> int:
 def _export_medications(db: Session) -> int:
     rows = db.query(Medication).order_by(Medication.scheduled_ts).all()
     df = pd.DataFrame([{
+        "med_id":       r.id,
         "scheduled_ts": r.scheduled_ts.isoformat(),
         "drug":         r.drug,
         "dose_mg":      r.dose_mg,
-        "taken":        r.taken,
+        "taken":        int(bool(r.taken)),   # 1/0 - avoids "True"/"False" string ambiguity
     } for r in rows])
     return _save(df, "medications.csv")
 
 
 def _export_fasting_windows(db: Session) -> int:
     rows = db.query(FastingWindow).order_by(FastingWindow.start_ts).all()
-    df = pd.DataFrame([{
-        "start_ts":    r.start_ts.isoformat(),
-        "end_ts":      r.end_ts.isoformat() if r.end_ts else None,
-        "window_type": r.window_type,
-    } for r in rows])
+    records = []
+    for r in rows:
+        dur = (
+            round((r.end_ts - r.start_ts).total_seconds() / 3600, 2)
+            if r.end_ts is not None else None
+        )
+        records.append({
+            "start_ts":       r.start_ts.isoformat(),
+            "end_ts":         r.end_ts.isoformat() if r.end_ts else None,
+            "window_type":    r.window_type,
+            "duration_hours": dur,
+            "date":           r.start_ts.date().isoformat(),
+        })
+    df = pd.DataFrame(records)
     return _save(df, "fasting_windows.csv")
 
 

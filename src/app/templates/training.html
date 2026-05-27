@@ -1,27 +1,31 @@
 {% extends "base.html" %}
-{% block title %}Training — CGM Tracker{% endblock %}
+{% block title %}Training - CGM Tracker{% endblock %}
 {% block content %}
 <h1>Model training</h1>
 
-<div class="card" style="max-width:560px">
+<div class="card">
   <h2>Run training pipeline</h2>
   <p style="font-size:0.88rem; color:#555; margin-bottom:1rem">
     Exports all logged data to CSVs, rebuilds feature matrices, refits selected models,
-    and records accuracy to the history below. Ridge takes ~10 seconds; SARIMAX ~3–5 minutes.
+    and records accuracy to the history below.
+    Ridge / RF ≈ 10–30 s &nbsp;·&nbsp; SARIMAX ≈ 3–5 min &nbsp;·&nbsp; LSTM ≈ 2–5 min (requires PyTorch).
   </p>
 
   {% if status.running %}
   <div class="alert alert-info" id="running-banner">
-    <span class="spinner"></span>&nbsp; Training in progress since {{ status.started_at[:19] if status.started_at else "?" }} UTC
+    <span class="spinner"></span>&nbsp; Training in progress since {{ status.started_at | localtime("%Y-%m-%d %H:%M") if status.started_at else "?" }}
   </div>
   {% endif %}
 
   <form method="post" action="/training/run" id="train-form">
     <div class="field">
       <label>Models to train</label>
-      <div style="display:flex; gap:1.5rem; margin-top:0.4rem">
-        <label><input type="checkbox" name="models" value="ridge" checked> Ridge (per-meal)</label>
+      <div style="display:flex; gap:1.5rem; flex-wrap:wrap; margin-top:0.4rem">
+        <label><input type="checkbox" name="models" value="ridge"    checked> Ridge (per-meal)</label>
+        <label><input type="checkbox" name="models" value="rf"       checked> Random Forest (per-meal)</label>
         <label><input type="checkbox" name="models" value="sarimax"> SARIMAX (hourly)</label>
+        <label><input type="checkbox" name="models" value="lstm">    LSTM (per-meal, requires PyTorch)</label>
+        <label><input type="checkbox" name="models" value="lstm5min"> LSTM 5-min (next-reading, requires PyTorch)</label>
       </div>
     </div>
     <button type="submit" class="btn btn-success" {{ "disabled" if status.running }}>
@@ -39,6 +43,21 @@
   {% if status.error %}
   <div class="alert alert-error" style="margin-top:1rem">{{ status.error }}</div>
   {% endif %}
+</div>
+
+<div class="card">
+  <h2>Download raw data</h2>
+  <p style="font-size:0.88rem; color:#555; margin-bottom:1rem">
+    Exports all logged data from the database and packages it into a single
+    <code>.zip</code> containing the six raw CSVs used by the feature-build scripts
+    (<code>cgm_5min</code>, <code>meals_v2</code>, <code>activities</code>,
+    <code>medications</code>, <code>fasting_windows</code>, <code>food_lookup</code>).
+    No model training is triggered.
+  </p>
+  <a href="/training/download-raw" class="btn btn-secondary" id="download-btn"
+     onclick="this.textContent='Preparing…'; setTimeout(()=>this.textContent='Download raw data (.zip)',4000)">
+    Download raw data (.zip)
+  </a>
 </div>
 
 <div class="card">
@@ -60,20 +79,20 @@
     <tbody>
       {% for r in runs %}
       <tr>
-        <td>{{ r.run_ts.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td>{{ r.run_ts | localtime("%Y-%m-%d %H:%M") }}</td>
         <td><span class="badge badge-gray">{{ r.model_name }}</span></td>
-        <td>{{ "%.2f"|format(r.rmse_train) if r.rmse_train else "—" }}</td>
+        <td>{{ "%.2f"|format(r.rmse_train) if r.rmse_train else "-" }}</td>
         <td>
           {% if r.rmse_test %}
             <span class="{{ 'badge-green' if r.rmse_test < 35 else ('badge-orange' if r.rmse_test < 45 else 'badge-red') }} badge">
               {{ "%.2f"|format(r.rmse_test) }}
             </span>
-          {% else %}—{% endif %}
+          {% else %}-{% endif %}
         </td>
-        <td>{{ "%.2f"|format(r.mae_test) if r.mae_test else "—" }}</td>
-        <td>{{ "%.3f"|format(r.r2_test)  if r.r2_test  else "—" }}</td>
-        <td>{{ r.n_train or "—" }}</td>
-        <td>{{ r.n_test  or "—" }}</td>
+        <td>{{ "%.2f"|format(r.mae_test) if r.mae_test else "-" }}</td>
+        <td>{{ "%.3f"|format(r.r2_test)  if r.r2_test  else "-" }}</td>
+        <td>{{ r.n_train or "-" }}</td>
+        <td>{{ r.n_test  or "-" }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -94,7 +113,7 @@
         if (logEl && s.log) logEl.textContent = s.log.join('\n');
         setTimeout(poll, 3000);
       } else if (document.getElementById('running-banner')) {
-        // Was running; now done — reload to show updated history
+        // Was running; now done - reload to show updated history
         window.location.reload();
       }
     })

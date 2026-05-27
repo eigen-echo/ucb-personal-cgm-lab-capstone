@@ -12,7 +12,7 @@ templates = Jinja2Templates(directory=_TMPL_DIR)
 
 
 def _pending_spikes_count() -> int:
-    from app.services.spike_detector import count_pending  # lazy — avoids circular at import
+    from app.services.spike_detector import count_pending  # lazy - avoids circular at import
     db = SessionLocal()
     try:
         return count_pending(db)
@@ -21,3 +21,15 @@ def _pending_spikes_count() -> int:
 
 
 templates.env.globals["pending_spikes"] = _pending_spikes_count
+
+
+def _localtime_filter(dt, fmt: str = "%b %d %H:%M") -> str:
+    """Jinja2 filter: convert naive UTC datetime (or ISO string) to user's local time."""
+    from app.services.timezone import get_cached_tz, to_local
+    try:
+        return to_local(dt, get_cached_tz(), fmt)
+    except Exception:
+        return str(dt) if dt else "-"
+
+
+templates.env.filters["localtime"] = _localtime_filter

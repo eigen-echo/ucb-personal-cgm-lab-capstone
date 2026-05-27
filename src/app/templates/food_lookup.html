@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Food Lookup — CGM Tracker{% endblock %}
+{% block title %}Food Lookup - CGM Tracker{% endblock %}
 {% block content %}
 <h1>Food lookup</h1>
 
@@ -22,15 +22,15 @@
       {% for f in items %}
       <tr>
         <td>{{ f.display_name }}</td>
-        <td>{{ f.carbs_g or "—" }}</td>
-        <td>{{ f.protein_g or "—" }}</td>
-        <td>{{ f.fat_g or "—" }}</td>
+        <td>{{ f.carbs_g or "-" }}</td>
+        <td>{{ f.protein_g or "-" }}</td>
+        <td>{{ f.fat_g or "-" }}</td>
         <td>
           {% if f.gl %}
             <span class="badge {{ 'badge-green' if f.gl == 'low' else ('badge-orange' if f.gl == 'medium' else 'badge-red') }}">
               {{ f.gl }}
             </span>
-          {% else %}—{% endif %}
+          {% else %}-{% endif %}
         </td>
         <td><span class="badge badge-gray">{{ f.source }}</span></td>
         <td>
@@ -71,7 +71,7 @@
       <div class="field">
         <label>Glycemic load</label>
         <select name="gl">
-          <option value="">—</option>
+          <option value="">-</option>
           <option value="low">Low</option>
           <option value="medium">Medium</option>
           <option value="high">High</option>

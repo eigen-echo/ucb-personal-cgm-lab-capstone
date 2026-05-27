@@ -1,17 +1,23 @@
 {% extends "base.html" %}
-{% block title %}Spike Review — CGM Tracker{% endblock %}
+{% block title %}Spike Review - CGM Tracker{% endblock %}
 {% block content %}
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
   <h1 style="margin:0">
     Unreviewed spikes
     <span style="font-size:0.85rem; color:#666; font-weight:400">(unattributed glucose peaks)</span>
   </h1>
-  <a href="/config/" class="btn btn-primary btn-sm" style="background:#555">Settings</a>
+  <div style="display:flex; gap:0.5rem">
+    <form method="post" action="/spikes/redetect"
+          onsubmit="return confirm('Clear all spike events and re-run detection from full CGM history?')">
+      <button class="btn btn-sm" style="background:#e65100; color:#fff">↺ Re-detect</button>
+    </form>
+    <a href="/config/" class="btn btn-primary btn-sm" style="background:#555">Settings</a>
+  </div>
 </div>
 
 {% if not spikes %}
 <div class="card">
-  <p style="color:#999">No pending spikes — all detected peaks are matched to a meal, activity, or have been dismissed.</p>
+  <p style="color:#999">No pending spikes - all detected peaks are matched to a meal, activity, or have been dismissed.</p>
 </div>
 {% else %}
 <div class="card">
@@ -27,13 +33,13 @@
         <th>Baseline</th>
         <th>Peak</th>
         <th>Rise (Δ)</th>
-        <th colspan="4" style="text-align:center">What caused this?</th>
+        <th colspan="5" style="text-align:center">What caused this?</th>
       </tr>
     </thead>
     <tbody>
       {% for s in spikes %}
       <tr>
-        <td style="white-space:nowrap">{{ s.peak_ts.strftime("%b %d %H:%M") }}</td>
+        <td style="white-space:nowrap">{{ s.peak_ts | localtime }}</td>
         <td>{{ "%.0f"|format(s.baseline_glucose) }} mg/dL</td>
         <td>{{ "%.0f"|format(s.peak_glucose) }} mg/dL</td>
         <td>
@@ -60,6 +66,12 @@
           <form method="post" action="/spikes/{{ s.id }}/acknowledge" style="display:inline">
             <input type="hidden" name="attribution" value="no_data">
             <button class="btn btn-sm" style="background:#ccc; color:#333">No data</button>
+          </form>
+        </td>
+        <td>
+          <form method="post" action="/spikes/{{ s.id }}/acknowledge" style="display:inline">
+            <input type="hidden" name="attribution" value="dismissed">
+            <button class="btn btn-sm" style="background:#f5f5f5; color:#888; border:1px solid #ddd">✕ Dismiss</button>
           </form>
         </td>
       </tr>

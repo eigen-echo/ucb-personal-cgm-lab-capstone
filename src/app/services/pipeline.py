@@ -14,7 +14,7 @@ SRC_DIR = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
 
-# Shared in-memory status (single-user localhost — no need for Redis/DB)
+# Shared in-memory status (single-user localhost - no need for Redis/DB)
 status = {
     "running":    False,
     "started_at": None,
@@ -48,6 +48,9 @@ def run(db: Session, models: list[str]):
 
         _log("Running 01-build-hourly.py...")
         _run_script(os.path.join(SCRIPTS_DIR, "01-build-hourly.py"))
+
+        _log("Running 02-build-5min.py...")
+        _run_script(os.path.join(SCRIPTS_DIR, "02-build-5min.py"))
 
         train_script = os.path.join(SRC_DIR, "train_models.py")
         _log(f"Running train_models.py --models {' '.join(models)} ...")

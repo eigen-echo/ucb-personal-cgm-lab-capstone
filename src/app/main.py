@@ -1,10 +1,11 @@
 import os
+import sqlite3
 import pandas as pd
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.database import init_db, SessionLocal
+from app.database import init_db, SessionLocal, DB_PATH
 from app.models.app_config import AppConfig
 from app.models.food_item import FoodItem
 from app.routers import dashboard, meals, activities, cgm, food_lookup, training, spikes, config
@@ -15,9 +16,31 @@ DATA_RAW = os.environ.get("DATA_RAW_DIR", "/app/data/raw")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    _migrate_db()
     _seed_food_lookup()
     _seed_config()
     yield
+
+
+def _migrate_db():
+    """Add columns introduced after the initial schema. Safe to run every startup."""
+    new_cols = [
+        # (table, column, sqlite_type)
+        ("activities", "calories_burned",     "REAL"),
+        ("activities", "distance_km",         "REAL"),
+        ("activities", "steps",               "INTEGER"),
+        ("activities", "avg_pace_min_per_km", "REAL"),
+        ("activities", "avg_heart_rate_bpm",  "INTEGER"),
+        ("activities", "cardio_load",         "REAL"),
+        ("activities", "elevation_gain_m",    "REAL"),
+        ("activities", "active_zone_min",     "INTEGER"),
+    ]
+    with sqlite3.connect(DB_PATH) as conn:
+        for table, col, col_type in new_cols:
+            try:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
+            except sqlite3.OperationalError:
+                pass  # column already exists
 
 
 def _seed_food_lookup():
@@ -50,8 +73,9 @@ def _seed_food_lookup():
 def _seed_config():
     """Insert default config values if not already present."""
     defaults = [
-        ("spike_threshold_meal",     "30", "Minimum glucose rise (mg/dL) to flag as a meal spike"),
-        ("spike_threshold_activity", "15", "Minimum glucose rise (mg/dL) to flag as an activity spike"),
+        ("user_timezone",            "UTC", "IANA timezone name for display and input conversion"),
+        ("spike_threshold_meal",     "30",  "Minimum glucose rise (mg/dL) to flag as a meal spike"),
+        ("spike_threshold_activity", "15",  "Minimum glucose rise (mg/dL) to flag as an activity spike"),
     ]
     db = SessionLocal()
     try:

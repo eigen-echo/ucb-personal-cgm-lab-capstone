@@ -195,7 +195,7 @@ One row per hour (2,076 rows as of April 2026, covering 2026-02-01 to 2026-04-28
 `scripts/01-build-hourly.py`. The primary modeling table for the hourly SARIMAX (notebook 03).
 Target variable: **`glucose_hourly_mean`**.
 
-The hourly grid is **complete and regular** — every hour from the first to the last CGM reading
+The hourly grid is **complete and regular** - every hour from the first to the last CGM reading
 is present, including hours with no sensor data. This is required for SARIMAX's evenly-spaced
 assumption. Hours with no sensor data are represented as NaN in `glucose_hourly_mean`.
 
@@ -227,7 +227,7 @@ handled by statsmodels' Kalman filter natively. The longest gap is 63 hours (sen
 ### Carb-load features
 
 All carb windows look strictly backward (no leakage). A meal at time `t` is included in
-`carbs_last_1h` for hour `t` — this is intentional and not leakage, because at
+`carbs_last_1h` for hour `t` - this is intentional and not leakage, because at
 counterfactual time the meal is a planned input.
 
 Carb values use the same priority chain as the per-meal build:

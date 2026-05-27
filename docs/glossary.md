@@ -14,7 +14,7 @@ Terms used across the notebooks and README for this project.
 | A1C / HbA1c | Hemoglobin A1c | A lab test measuring average blood glucose over the past ~3 months; target for well-controlled T2D is <7% |
 | IF | Intermittent Fasting | An eating pattern that restricts food to a defined window; here used to mean skipping breakfast and eating first at lunch |
 | mg/dL | milligrams per deciliter | The glucose concentration unit used in the US |
-| peak_delta | — | The rise in glucose from pre-meal baseline to peak within ~3 hours; the primary modeling target |
+| peak_delta | - | The rise in glucose from pre-meal baseline to peak within ~3 hours; the primary modeling target |
 
 ---
 
@@ -34,6 +34,6 @@ Terms used across the notebooks and README for this project.
 | ADF | Augmented Dickey-Fuller test | A statistical test for whether a time series is stationary (no unit root); p < 0.05 means stationary |
 | DW | Durbin-Watson statistic | Tests for autocorrelation in regression residuals; ~2.0 means none, below ~1.0 means severe positive autocorrelation (OLS assumptions violated) |
 | AR / MA | AutoRegressive / Moving Average | The two core components of ARIMA: AR uses past values, MA uses past forecast errors |
-| oracle vs recursive | — | Oracle evaluation feeds a model the true recent value as an input (optimistic); recursive evaluation feeds the model its own prior prediction (realistic for forecasting ahead) |
+| oracle vs recursive | - | Oracle evaluation feeds a model the true recent value as an input (optimistic); recursive evaluation feeds the model its own prior prediction (realistic for forecasting ahead) |
 | CV | Cross-Validation | Technique for estimating model performance by splitting data into multiple train/validation folds |
 | DOW | Day of Week | Calendar day Monday–Sunday |

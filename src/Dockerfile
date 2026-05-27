@@ -19,6 +19,8 @@ ENV DATA_PROCESSED_DIR=/app/data/processed
 ENV MODELS_DIR=/app/models
 ENV SCRIPTS_DIR=/app/scripts
 
+RUN mkdir -p /app/data/raw /app/data/processed /app/models
+
 EXPOSE 8080
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

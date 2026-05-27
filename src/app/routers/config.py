@@ -5,22 +5,35 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.app_config import AppConfig
+from app.services.timezone import TIMEZONE_CHOICES
 from app.shared_templates import templates
 
 router = APIRouter(prefix="/config", tags=["config"])
 
 CONFIG_DEFS = [
     {
+        "key":         "user_timezone",
+        "label":       "Display timezone",
+        "description": "All times are stored as UTC. This converts them for display and converts your inputs back to UTC on save.",
+        "default":     "UTC",
+        "input_type":  "select",
+        "options":     TIMEZONE_CHOICES,
+    },
+    {
         "key":         "spike_threshold_meal",
         "label":       "Meal spike threshold (mg/dL)",
         "description": "Minimum glucose rise to flag a peak as a potential meal spike.",
         "default":     "30",
+        "input_type":  "number",
+        "options":     None,
     },
     {
         "key":         "spike_threshold_activity",
         "label":       "Activity spike threshold (mg/dL)",
         "description": "Minimum glucose rise to flag a peak as a potential activity spike. Set lower than the meal threshold.",
         "default":     "15",
+        "input_type":  "number",
+        "options":     None,
     },
 ]
 

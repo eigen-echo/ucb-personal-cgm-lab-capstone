@@ -78,7 +78,8 @@ def detect_and_insert(db: Session, start_ts: datetime, end_ts: datetime) -> int:
                 used.add(other_ts)
 
     # Fetch existing meals / activities to skip already-attributed spikes
-    check_start = start_ts - timedelta(hours=2)
+    # Activity window is 120 min pre-spike: cover dinner→walk→late spike scenarios
+    check_start = start_ts - timedelta(hours=2, minutes=30)
     meal_times = [
         m.ts for m in db.query(Meal)
         .filter(Meal.ts >= check_start, Meal.ts <= end_ts)
@@ -94,7 +95,7 @@ def detect_and_insert(db: Session, start_ts: datetime, end_ts: datetime) -> int:
     for peak_ts, row in selected:
         if any(peak_ts - timedelta(minutes=90) <= mt <= peak_ts for mt in meal_times):
             continue
-        if any(peak_ts - timedelta(minutes=60) <= at <= peak_ts + timedelta(minutes=30)
+        if any(peak_ts - timedelta(minutes=120) <= at <= peak_ts + timedelta(minutes=30)
                for at in act_times):
             continue
         if db.query(SpikeEvent).filter(SpikeEvent.peak_ts == peak_ts).first():
@@ -129,7 +130,7 @@ def get_pending(db: Session) -> list[dict[str, Any]]:
     ]
     act_times = [
         a.ts for a in db.query(Activity)
-        .filter(Activity.ts >= earliest - timedelta(hours=2))
+        .filter(Activity.ts >= earliest - timedelta(hours=2, minutes=30))
         .all()
     ]
 
@@ -140,17 +141,19 @@ def get_pending(db: Session) -> list[dict[str, Any]]:
         pt = s.peak_ts
         if any(pt - timedelta(minutes=90) <= mt <= pt for mt in meal_times):
             continue
-        if any(pt - timedelta(minutes=60) <= at <= pt + timedelta(minutes=30) for at in act_times):
+        if any(pt - timedelta(minutes=120) <= at <= pt + timedelta(minutes=30) for at in act_times):
             continue
+        from app.services.timezone import get_cached_tz, to_local
+        tz = get_cached_tz()
         result.append({
             "id":               s.id,
             "peak_ts":          pt,
             "peak_glucose":     s.peak_glucose,
             "baseline_glucose": s.baseline_glucose,
             "peak_delta":       s.peak_delta,
-            # Pre-fill times for the log-meal / log-activity forms
-            "meal_prefill":  (pt - timedelta(minutes=45)).strftime("%Y-%m-%dT%H:%M"),
-            "act_prefill":   (pt - timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M"),
+            # Pre-fill times in user's local timezone for the log-meal / log-activity forms
+            "meal_prefill":  to_local(pt - timedelta(minutes=45), tz, "%Y-%m-%dT%H:%M"),
+            "act_prefill":   to_local(pt - timedelta(minutes=30), tz, "%Y-%m-%dT%H:%M"),
         })
     return result
 

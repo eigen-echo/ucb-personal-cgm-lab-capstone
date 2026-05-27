@@ -84,7 +84,7 @@ def lookup_food(dish_names):
     return pd.Series({'carbs_g_lookup':   r['carbs_g'],
                       'protein_g_lookup': r['protein_g'],
                       'fat_g_lookup':     r['fat_g'],
-                      'gl_lookup':        r['glycemic_load_est'],
+                      'gl_lookup':        r['gl'],
                       'food_match':       r['dish_key']})
 
 
@@ -94,6 +94,38 @@ meals = pd.concat([meals, meals['dish_names'].apply(lookup_food)], axis=1)
 # ============================================================== CGM rolling features per meal
 cgm_idx = cgm.set_index('ts')['glucose_mg_dl'].sort_index()
 cgm_idx = cgm_idx[~cgm_idx.index.duplicated(keep='first')]
+
+
+def compute_meal_outcome(meal_ts):
+    """Compute pre_meal_glucose, peak_glucose, peak_delta, time_to_peak_min from CGM data."""
+    # Pre-meal: last reading within 10 min before (or at) meal time
+    pre_window = cgm_idx.loc[meal_ts - pd.Timedelta(minutes=10) : meal_ts]
+    pre_meal_g = float(pre_window.iloc[-1]) if len(pre_window) else np.nan
+
+    # Post-meal: CGM readings up to 3 hours after meal
+    post_window = cgm_idx.loc[meal_ts : meal_ts + pd.Timedelta(hours=3)]
+    if len(post_window) < 3 or pd.isna(pre_meal_g):
+        return pd.Series({
+            'pre_meal_glucose': pre_meal_g,
+            'peak_glucose':     np.nan,
+            'peak_delta':       np.nan,
+            'time_to_peak_min': np.nan,
+        })
+
+    peak_idx = post_window.idxmax()
+    peak_g   = float(post_window.max())
+    return pd.Series({
+        'pre_meal_glucose': pre_meal_g,
+        'peak_glucose':     peak_g,
+        'peak_delta':       max(0.0, peak_g - pre_meal_g),
+        'time_to_peak_min': float((peak_idx - meal_ts).total_seconds() / 60),
+    })
+
+
+outcome_df = meals['ts'].apply(compute_meal_outcome)
+meals = pd.concat([meals, outcome_df], axis=1)
+print(f"  Meal outcomes computed: "
+      f"{meals['peak_delta'].notna().sum()}/{len(meals)} with valid peak_delta")
 
 
 def cgm_window_mean(ts, minutes):
@@ -146,7 +178,7 @@ meals['minutes_to_first_walk'] = meals['ts'].apply(minutes_to_first_walk)
 
 
 # ============================================================== medication per meal
-meds_taken = meds[meds['taken'].astype(bool)].sort_values('scheduled_ts').reset_index(drop=True)
+meds_taken = meds[pd.to_numeric(meds['taken'], errors='coerce').fillna(0).astype(bool)].sort_values('scheduled_ts').reset_index(drop=True)
 
 
 def last_dose_features(meal_ts):
@@ -351,7 +383,7 @@ overnight = (fast_d[fast_d['window_type'] == 'overnight']
              .rename(columns={'duration_hours': 'overnight_fast_hours'}))
 
 meds['date'] = to_physio(meds['scheduled_ts'])
-daily_doses  = (meds[meds['taken'] == 'TRUE']
+daily_doses  = (meds[pd.to_numeric(meds['taken'], errors='coerce').fillna(0).astype(bool)]
                 .groupby('date').agg(doses_taken=('med_id', 'count'))
                 .reset_index())
 
@@ -384,7 +416,7 @@ daily['total_carbs_lag1']    = daily['total_carbs'].shift(1)
 daily['mean_glucose_7d_avg_prior'] = (
     daily['mean_glucose'].shift(1).rolling(7, min_periods=3).mean())
 
-# Trailing 7-day avg including today — for descriptive plots only, not a feature.
+# Trailing 7-day avg including today - for descriptive plots only, not a feature.
 daily['mean_glucose_7d_avg_descriptive'] = (
     daily['mean_glucose'].rolling(7, min_periods=3).mean())
 

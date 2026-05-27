@@ -4,8 +4,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.cgm import CGMReading
 from app.models.spike_event import SpikeEvent
-from app.services.spike_detector import get_pending
+from app.services.spike_detector import detect_and_insert, get_pending
 from app.shared_templates import templates
 
 router = APIRouter(prefix="/spikes", tags=["spikes"])
@@ -17,6 +18,18 @@ def review(request: Request, db: Session = Depends(get_db)):
         "request": request,
         "spikes":  get_pending(db),
     })
+
+
+@router.post("/redetect")
+def redetect(db: Session = Depends(get_db)):
+    """Clear all spike events and re-run detection over the full CGM history."""
+    first = db.query(CGMReading).order_by(CGMReading.ts.asc()).first()
+    last  = db.query(CGMReading).order_by(CGMReading.ts.desc()).first()
+    if first and last:
+        db.query(SpikeEvent).delete()
+        db.commit()
+        detect_and_insert(db, start_ts=first.ts, end_ts=last.ts)
+    return RedirectResponse("/spikes/review", status_code=303)
 
 
 @router.post("/{spike_id}/acknowledge")
