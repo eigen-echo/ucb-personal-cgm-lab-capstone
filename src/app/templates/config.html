@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Settings - CGM Tracker{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+
+{% if saved %}
+<div class="alert alert-success">Settings saved.</div>
+{% endif %}
+
+<div class="card" style="max-width:560px">
+  <form method="post" action="/config/save">
+
+    <div style="margin-bottom:1.75rem">
+      <h2>User preferences</h2>
+      {% for item in items if item.input_type == "select" %}
+      <div class="field">
+        <label>{{ item.label }}</label>
+        <p style="font-size:0.8rem; color:#888; margin: 0.1rem 0 0.4rem">{{ item.description }}</p>
+        <select name="{{ item.key }}" style="max-width:280px">
+          {% for opt in item.options %}
+          <option value="{{ opt }}" {{ "selected" if item.value == opt }}>{{ opt }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div>
+      <h2>Spike detection thresholds</h2>
+      <p style="font-size:0.88rem; color:#555; margin-bottom:1.25rem">
+        After each CGM upload, peaks above these thresholds that have no matching meal or
+        activity logged nearby are flagged for review.
+      </p>
+      {% for item in items if item.input_type == "number" %}
+      <div class="field">
+        <label>{{ item.label }}</label>
+        <p style="font-size:0.8rem; color:#888; margin: 0.1rem 0 0.4rem">{{ item.description }}</p>
+        <input type="number" name="{{ item.key }}" value="{{ item.value }}"
+               step="1" min="1" style="max-width:120px" required>
+        <span style="font-size:0.85rem; color:#666"> mg/dL</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <button type="submit" class="btn btn-success" style="margin-top:0.75rem">Save</button>
+  </form>
+</div>
+{% endblock %}

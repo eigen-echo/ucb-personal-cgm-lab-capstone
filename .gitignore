@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+models/*
+
+# SQLite app database (personal health data - do not commit)
+data/cgm_app*.db
+data/cgm_app.db-journal
+data/cgm_app.db-wal
+data/cgm_app.db-shm
+

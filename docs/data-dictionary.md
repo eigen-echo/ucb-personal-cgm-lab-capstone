@@ -187,6 +187,96 @@ be used as a model input.
 
 ---
 
+---
+
+## hourly_features.csv
+
+One row per hour (2,076 rows as of April 2026, covering 2026-02-01 to 2026-04-28). Built by
+`scripts/01-build-hourly.py`. The primary modeling table for the hourly SARIMAX (notebook 03).
+Target variable: **`glucose_hourly_mean`**.
+
+The hourly grid is **complete and regular** - every hour from the first to the last CGM reading
+is present, including hours with no sensor data. This is required for SARIMAX's evenly-spaced
+assumption. Hours with no sensor data are represented as NaN in `glucose_hourly_mean`.
+
+### Timestamp
+
+| column | type | description |
+|---|---|---|
+| `ts` | datetime | Hour-start timestamp (UTC). Each row covers `[ts, ts + 1h)` |
+
+### Target
+
+| column | type | description |
+|---|---|---|
+| `glucose_hourly_mean` | float | **Primary target.** Mean of all CGM readings in `[ts, ts+1h)` (mg/dL). NaN for hours with no readings after gap handling (see below) |
+
+### CGM diagnostics (not model inputs)
+
+| column | type | description |
+|---|---|---|
+| `glucose_n_readings` | int | CGM readings in this hour (0–12 for 5-min sensor). 0 for gap hours; 0 with non-null mean for interpolated hours |
+| `glucose_hourly_std` | float | Standard deviation of CGM readings in this hour (mg/dL). NaN if fewer than 2 readings |
+| `glucose_hourly_min` | float | Minimum CGM reading in this hour (mg/dL) |
+| `glucose_hourly_max` | float | Maximum CGM reading in this hour (mg/dL) |
+
+**Sensor-gap policy:** Hours with zero CGM readings are NaN by default. Gaps of **≤ 2 consecutive
+hours** are linearly interpolated (3 such hours in this dataset). Longer gaps remain NaN and are
+handled by statsmodels' Kalman filter natively. The longest gap is 63 hours (sensor replacement).
+
+### Carb-load features
+
+All carb windows look strictly backward (no leakage). A meal at time `t` is included in
+`carbs_last_1h` for hour `t` - this is intentional and not leakage, because at
+counterfactual time the meal is a planned input.
+
+Carb values use the same priority chain as the per-meal build:
+`carbs_grams_logged > carbs_grams_estimated > carbs_g_lookup`. Meals with no carb estimate
+contribute 0 to window sums and 0 to `carb_load_decayed`.
+
+| column | type | description |
+|---|---|---|
+| `carbs_last_1h` | float | Sum of `carbs_g_final` for meals with `ts` in `(t-1h, t]` (g) |
+| `carbs_last_2h` | float | Same over `(t-2h, t]` (g) |
+| `carbs_last_3h` | float | Same over `(t-3h, t]` (g) |
+| `carb_load_decayed` | float | Decay-weighted carb load: `sum(carbs_g_final * exp(-delta_min / 75))` over meals in the preceding 6h. tau=75 min reflects digestion kinetics (peak ~45-90 min post-meal). Primary carb feature for SARIMAX |
+| `minutes_since_last_meal` | float | Minutes since the most recent meal, clipped at 720 min |
+| `carbs_last_meal` | float | `carbs_g_final` of the most recent meal (g). Null if no carb value recorded for that meal |
+
+### Activity features
+
+| column | type | description |
+|---|---|---|
+| `walk_min_last_2h` | float | Sum of `duration_min` for activities in `(t-2h, t]` (minutes) |
+| `walk_min_last_3h` | float | Same over `(t-3h, t]` (minutes) |
+| `minutes_since_last_walk` | float | Minutes since the most recent walk activity, clipped at 720 min |
+
+### Medication features
+
+| column | type | description |
+|---|---|---|
+| `minutes_since_last_glipizide` | float | Minutes since the most recent **taken** Glipizide dose. NaN if no prior dose |
+| `glipizide_active` | int | 1 if within the 12-hour glucose-lowering window of a taken Glipizide dose (IR formulation), else 0 |
+
+### Fasting features
+
+| column | type | description |
+|---|---|---|
+| `is_fasting` | int | 1 if hour `t` falls inside any logged fasting window (`fasting_windows.csv`), else 0 |
+| `hours_into_fast` | float | Hours elapsed since the active fasting window started. 0 for non-fasting hours |
+
+### Time encoding
+
+| column | type | description |
+|---|---|---|
+| `hour` | int | Hour of day (0–23) |
+| `hour_sin` | float | `sin(2pi * hour / 24)`, cyclical encoding of time of day |
+| `hour_cos` | float | `cos(2pi * hour / 24)`, cyclical encoding of time of day |
+| `is_weekend` | int | 1 if Saturday or Sunday, 0 otherwise |
+| `day_index` | int | Days since the first date in the dataset (0-indexed). Useful as a linear trend term |
+
+---
+
 ## Notes
 
 **Null values.** Most nutrition and medication columns are partially null by design. The imputation strategy used in `01-regression-model.ipynb` is median imputation for numerics and most-frequent for categoricals, applied inside a sklearn pipeline fitted only on training data.

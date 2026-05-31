@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Log Activity - CGM Tracker{% endblock %}
+{% block content %}
+<h1>Log activity</h1>
+
+<div class="card" style="max-width:560px">
+  <form method="post" action="/activities/new">
+    <div class="field">
+      <label>Date &amp; time</label>
+      <input type="datetime-local" name="ts" value="{{ now }}" required>
+    </div>
+
+    <div class="form-row">
+      <div class="field">
+        <label>Type</label>
+        <select name="activity_type">
+          <option value="walk">Walk</option>
+          <option value="run">Run</option>
+          <option value="cycle">Cycle</option>
+          <option value="yoga">Yoga</option>
+          <option value="hike">Hike</option>
+          <option value="swim">Swim</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Duration (minutes)</label>
+        <input type="number" name="duration_min" min="1" step="1" placeholder="e.g. 18" required>
+      </div>
+    </div>
+
+    <!-- ── Fitness tracker data ───────────────────────────────────────────── -->
+    <p style="font-size:0.8rem; color:#888; margin:1rem 0 0.5rem; text-transform:uppercase; letter-spacing:0.05em">
+      Fitness tracker data <span style="font-weight:400; text-transform:none; letter-spacing:0">(all optional)</span>
+    </p>
+
+    <div class="form-row">
+      <div class="field">
+        <label>Energy burned (cal)</label>
+        <input type="number" name="calories_burned" min="0" step="1" placeholder="e.g. 183">
+      </div>
+      <div class="field">
+        <label>Distance (km)</label>
+        <input type="number" name="distance_km" min="0" step="0.01" placeholder="e.g. 1.25">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="field">
+        <label>Steps</label>
+        <input type="number" name="steps" min="0" step="1" placeholder="e.g. 1778">
+      </div>
+      <div class="field">
+        <label>Avg heart rate (bpm)</label>
+        <input type="number" name="avg_heart_rate_bpm" min="30" max="250" step="1" placeholder="e.g. 131">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="field">
+        <label>Avg pace (mm:ss / km)</label>
+        <input type="text" name="avg_pace_min_per_km" placeholder="e.g. 14:18"
+               pattern="^\d{1,3}(:\d{2})?$" title="Enter as mm:ss or decimal minutes">
+      </div>
+      <div class="field">
+        <label>Active zone minutes</label>
+        <input type="number" name="active_zone_min" min="0" step="1" placeholder="e.g. 21">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="field">
+        <label>Elevation gain (m)</label>
+        <input type="number" name="elevation_gain_m" min="0" step="1" placeholder="e.g. 48">
+      </div>
+      <div class="field">
+        <label>Cardio load</label>
+        <input type="number" name="cardio_load" min="0" step="0.1" placeholder="e.g. 17">
+      </div>
+    </div>
+
+    <!-- ── Notes ─────────────────────────────────────────────────────────── -->
+    <div class="field" style="margin-top:0.5rem">
+      <label>Notes</label>
+      <input type="text" name="notes" placeholder="optional">
+    </div>
+
+    <div style="display:flex; gap:0.75rem; margin-top:0.75rem">
+      <button type="submit" class="btn btn-success">Save</button>
+      <a href="/activities/" class="btn btn-primary" style="background:#ccc; color:#333">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

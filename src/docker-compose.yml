@@ -1,0 +1,18 @@
+services:
+  cgm-app:
+    build: .
+    container_name: ucb-cgm-lab
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../data:/app/data
+      - ../models:/app/models
+      - ../scripts:/app/scripts
+    environment:
+      APP_ROOT: /app
+      DB_PATH: /app/data/cgm_app.db
+      DATA_RAW_DIR: /app/data/raw
+      DATA_PROCESSED_DIR: /app/data/processed
+      MODELS_DIR: /app/models
+      SCRIPTS_DIR: /app/scripts
+    restart: unless-stopped

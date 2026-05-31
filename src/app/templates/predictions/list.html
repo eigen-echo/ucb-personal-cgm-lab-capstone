@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Predictions - CGM Tracker{% endblock %}
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+  <h1 style="margin:0">Predictions
+    <span style="font-size:0.85rem; color:#666; font-weight:400">({{ n_matched }} matched of {{ preds | length }} total)</span>
+  </h1>
+  <a href="/predictions/new" class="btn btn-success">+ New prediction</a>
+</div>
+
+<!-- ── Accuracy stats ──────────────────────────────────────────────────────── -->
+{% if n_matched > 0 %}
+<div class="cards-row">
+  {% for name, label in [("ridge","Ridge"), ("rf","RF"), ("lstm3h","LSTM 3h"), ("sarimax","SARIMAX")] %}
+  <div class="stat-card">
+    <div class="label">{{ label }} MAE</div>
+    <div class="value" style="font-size:1.4rem">
+      {% if stats[name] is not none %}
+        {{ stats[name] }} <span style="font-size:0.85rem; font-weight:400">mg/dL</span>
+      {% else %}—{% endif %}
+    </div>
+    <div style="font-size:0.72rem; color:#aaa">over {{ n_matched }} matched</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- ── Predictions table ───────────────────────────────────────────────────── -->
+{% if not preds %}
+<div class="card">
+  <p style="color:#999">No predictions saved yet.
+    <a href="/predictions/new">Make your first prediction</a> after logging a meal.
+  </p>
+</div>
+{% else %}
+<div class="card" style="overflow-x:auto">
+  <table>
+    <thead>
+      <tr>
+        <th>Saved at</th>
+        <th>Version</th>
+        <th>Meal</th>
+        <th>Carbs</th>
+        <th style="text-align:center">Baseline</th>
+        <th style="text-align:center">Ridge Δ</th>
+        <th style="text-align:center">RF Δ</th>
+        <th style="text-align:center">LSTM 3h</th>
+        <th style="text-align:center">SARIMAX</th>
+        <th style="text-align:center">Actual Δ</th>
+        <th style="text-align:center">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in preds %}
+      <tr>
+        <td style="white-space:nowrap; font-size:0.82rem">{{ p.created_at | localtime }}</td>
+        <td style="font-size:0.78rem; white-space:nowrap">
+          {% if p.model_run_tag %}
+            <span class="badge badge-gray" style="font-family:monospace; font-size:0.72rem">{{ p.model_run_tag }}</span>
+          {% else %}
+            <span style="color:#ccc">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if p.meal_name %}{{ p.meal_name }}
+          {% elif p.meal_id %}<a href="/meals/" style="font-size:0.82rem">meal #{{ p.meal_id }}</a>
+          {% else %}<span style="color:#bbb">—</span>{% endif %}
+        </td>
+        <td>{{ "%.0f g" | format(p.carbs_g) if p.carbs_g else "—" }}</td>
+        <td style="text-align:center">{{ "%.0f" | format(p.baseline_glucose) }}</td>
+
+        <!-- Ridge -->
+        <td style="text-align:center">
+          {% if p.ridge_delta is not none %}
+            <span class="badge {{ 'badge-red' if p.ridge_delta >= 40 else ('badge-orange' if p.ridge_delta >= 25 else 'badge-green') }}">
+              {{ "%+.0f" | format(p.ridge_delta) }}
+            </span>
+          {% else %}—{% endif %}
+        </td>
+
+        <!-- RF -->
+        <td style="text-align:center">
+          {% if p.rf_delta is not none %}
+            <span class="badge {{ 'badge-red' if p.rf_delta >= 40 else ('badge-orange' if p.rf_delta >= 25 else 'badge-green') }}">
+              {{ "%+.0f" | format(p.rf_delta) }}
+            </span>
+          {% else %}—{% endif %}
+        </td>
+
+        <!-- LSTM 3h -->
+        <td style="text-align:center">
+          {% if p.lstm3h_glucose is not none %}
+            <span class="badge {{ 'badge-red' if p.lstm3h_delta >= 40 else ('badge-orange' if p.lstm3h_delta >= 25 else 'badge-green') }}">
+              {{ "%+.0f" | format(p.lstm3h_delta) }}
+            </span>
+            <span style="font-size:0.75rem; color:#888">({{ "%.0f" | format(p.lstm3h_glucose) }})</span>
+          {% else %}—{% endif %}
+        </td>
+
+        <!-- SARIMAX -->
+        <td style="text-align:center">
+          {% if p.sarimax3h_glucose is not none %}
+            <span class="badge {{ 'badge-red' if p.sarimax3h_delta >= 40 else ('badge-orange' if p.sarimax3h_delta >= 25 else 'badge-green') }}">
+              {{ "%+.0f" | format(p.sarimax3h_delta) }}
+            </span>
+            <span style="font-size:0.75rem; color:#888">({{ "%.0f" | format(p.sarimax3h_glucose) }})</span>
+          {% else %}—{% endif %}
+        </td>
+
+        <!-- Actual delta -->
+        <td style="text-align:center">
+          {% if p.actual_peak_delta is not none %}
+            <span class="badge {{ 'badge-red' if p.actual_peak_delta >= 40 else ('badge-orange' if p.actual_peak_delta >= 25 else 'badge-green') }}" style="font-weight:700">
+              {{ "%+.0f" | format(p.actual_peak_delta) }}
+            </span>
+          {% else %}
+            <span style="color:#bbb">—</span>
+          {% endif %}
+        </td>
+
+        <!-- Status / error -->
+        <td style="text-align:center; font-size:0.8rem">
+          {% if p.actual_glucose_3h is not none %}
+            {% set best_err = namespace(val=9999, name="") %}
+            {% for name, delta in [("Ridge", p.ridge_delta), ("RF", p.rf_delta), ("LSTM", p.lstm3h_delta), ("SARIMAX", p.sarimax3h_delta)] %}
+              {% if delta is not none %}
+                {% set err = (delta - p.actual_peak_delta) | abs %}
+                {% if err < best_err.val %}{% set best_err.val = err %}{% set best_err.name = name %}{% endif %}
+              {% endif %}
+            {% endfor %}
+            <span class="badge {{ 'badge-green' if best_err.val < 15 else ('badge-orange' if best_err.val < 30 else 'badge-red') }}">
+              best: {{ best_err.name }} ±{{ "%.0f" | format(best_err.val) }}
+            </span>
+          {% else %}
+            <span style="color:#bbb">⏳ Pending</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p style="font-size:0.78rem; color:#aaa; margin-top:0.75rem">
+    Δ = predicted rise above baseline (mg/dL). Actual Δ = peak rise in 3-hour window.
+    Absolute values in parentheses for LSTM 3h and SARIMAX.
+    Actuals are filled in automatically on your next CGM upload.
+  </p>
+</div>
+{% endif %}
+{% endblock %}
