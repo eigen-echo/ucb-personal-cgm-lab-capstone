@@ -22,5 +22,5 @@ def get_db():
 
 def init_db():
     # Import all models so Base sees them before create_all
-    from app.models import cgm, meal, activity, medication, fasting_window, food_item, model_run, spike_event, app_config  # noqa: F401
+    from app.models import cgm, meal, activity, medication, fasting_window, food_item, model_run, spike_event, app_config, glucose_prediction  # noqa: F401
     Base.metadata.create_all(bind=engine)

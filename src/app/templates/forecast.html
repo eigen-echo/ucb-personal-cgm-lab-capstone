@@ -1,0 +1,515 @@
+{% extends "base.html" %}
+{% block title %}Glucose Forecast - CGM Tracker{% endblock %}
+{% block content %}
+
+<h1>Glucose Trajectory Forecast
+  <span style="font-size:0.82rem; font-weight:400; color:#888">— 3-hour post-meal outlook</span>
+</h1>
+
+{% if cold_start %}
+<div class="alert alert-info" style="margin-bottom:1rem">
+  {% if cgm_age_min is not none %}
+  ⚠️ Last CGM reading was <strong>{{ cgm_age_min }} min ago</strong> — sensor may be out of sync.
+  {% else %}
+  ⚠️ No recent CGM data found.
+  {% endif %}
+  LSTM trajectory will use a flat baseline at the glucose you enter below.
+  SARIMAX is unaffected.
+</div>
+{% endif %}
+
+<!-- ── Input form ───────────────────────────────────────────────────────────── -->
+<div class="card">
+  <form id="forecast-form">
+
+    <div class="form-row">
+      <div class="field" style="max-width:200px">
+        <label>Current glucose (mg/dL)</label>
+        <input type="number" id="current-glucose" name="current_glucose"
+               value="{{ current_glucose }}" min="40" max="450" step="1" required>
+      </div>
+      <div class="field" style="max-width:200px">
+        <label>Carbs about to eat (g)</label>
+        <input type="number" name="carbs_g"
+               value="{{ last_meal_carbs }}" min="0" max="500" step="1" placeholder="e.g. 60">
+      </div>
+      <div class="field" style="max-width:220px">
+        <label>Meal / prediction time</label>
+        <input type="datetime-local" name="meal_ts" value="{{ now_local_str }}" required>
+      </div>
+    </div>
+
+    <div class="field" style="margin-top:0.25rem">
+      <label style="display:flex; align-items:center; gap:0.5rem; font-weight:400">
+        <input type="checkbox" id="walk-cb" onchange="toggleWalk(this)">
+        Planning to walk after the meal
+      </label>
+      <div id="walk-row" style="display:none; margin-top:0.5rem; align-items:center; gap:0.5rem">
+        <!-- No name= here — JS writes the value into walk-hidden before submit -->
+        <input type="number" id="walk-min"
+               value="30" min="1" max="180" step="5"
+               oninput="document.getElementById('walk-hidden').value = this.value"
+               style="width:90px; padding:0.35rem 0.5rem; border:1px solid #ccc; border-radius:4px; font-size:0.9rem">
+        <span style="font-size:0.85rem; color:#555">minutes</span>
+      </div>
+      <!-- Single authoritative field for the backend; always submitted -->
+      <input type="hidden" name="walk_min_after" id="walk-hidden" value="0">
+    </div>
+
+    <button type="submit" id="forecast-btn" class="btn btn-success">
+      Generate forecast
+    </button>
+  </form>
+</div>
+
+<!-- ── Chart ────────────────────────────────────────────────────────────────── -->
+<div class="card" id="chart-card" style="display:none">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.5rem">
+    <h2 style="margin:0">Glucose trajectory
+      <span style="font-size:0.78rem; font-weight:400; color:#888" id="cold-start-note"></span>
+    </h2>
+    <div style="font-size:0.78rem; color:#888; line-height:1.7">
+      <span style="color:#e65100">&#9472;&#9472;</span> SARIMAX &nbsp;
+      <span style="color:#1565c0">&#9472;&#9472;</span> LSTM V1 &nbsp;
+      <span style="color:#2e7d32">&#9472;&#9472;</span> LSTM V2 &nbsp;
+      <span style="color:#757575">- - -</span> Reference (physio) &nbsp;
+      <span style="color:#666">&#9472;&#9472;</span> CGM history<br>
+      Solid = with walk &nbsp;·&nbsp; Dashed = no walk &nbsp;·&nbsp; Shaded = SARIMAX 95% CI
+    </div>
+  </div>
+  <canvas id="trajectoryChart" height="90"></canvas>
+  <div id="model-errors" style="font-size:0.8rem; color:#c62828; margin-top:0.5rem"></div>
+</div>
+
+<!-- ── Info strip ───────────────────────────────────────────────────────────── -->
+<div id="info-strip" style="display:none" class="card">
+  <div class="cards-row" style="margin-bottom:0">
+    <div class="stat-card" id="info-sarimax-peak" style="min-width:140px">
+      <div class="value" style="font-size:1.4rem">—</div>
+      <div class="label">SARIMAX peak (walk)</div>
+    </div>
+    <div class="stat-card" id="info-lstm-peak" style="min-width:140px">
+      <div class="value" style="font-size:1.4rem">—</div>
+      <div class="label">LSTM peak (walk)</div>
+    </div>
+    <div class="stat-card" id="info-walk-diff" style="min-width:140px">
+      <div class="value" style="font-size:1.4rem">—</div>
+      <div class="label">Walk benefit (LSTM)</div>
+    </div>
+    <div class="stat-card" id="info-back-baseline" style="min-width:140px">
+      <div class="value" style="font-size:1.4rem">—</div>
+      <div class="label">LSTM at 3h</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Form helpers ───────────────────────────────────────────────────────────────
+function toggleWalk(cb) {
+  const row    = document.getElementById('walk-row');
+  const hidden = document.getElementById('walk-hidden');
+  row.style.display = cb.checked ? 'flex' : 'none';
+  // Keep the hidden field in sync: 0 when unchecked, number-input value when checked
+  hidden.value = cb.checked
+    ? (document.getElementById('walk-min').value || 30)
+    : '0';
+}
+
+// ── Chart singleton ────────────────────────────────────────────────────────────
+let chart = null;
+
+// ── Plugins ───────────────────────────────────────────────────────────────────
+// Draw euglycemic range (70–180) behind all datasets
+const euglycemicPlugin = {
+  id: 'euglycemic',
+  beforeDatasetsDraw(ch) {
+    const ctx    = ch.ctx;
+    const xScale = ch.scales.x;
+    const yScale = ch.scales.y;
+    if (!yScale || !xScale) return;
+    const y70  = yScale.getPixelForValue(70);
+    const y180 = yScale.getPixelForValue(180);
+    const left = ch.chartArea.left;
+    const w    = ch.chartArea.right - left;
+    ctx.save();
+    ctx.fillStyle = 'rgba(76,175,80,0.07)';
+    ctx.fillRect(left, y180, w, y70 - y180);
+    ctx.setLineDash([3, 4]);
+    ctx.strokeStyle = 'rgba(76,175,80,0.35)';
+    ctx.lineWidth = 1;
+    [70, 180].forEach(g => {
+      const y = yScale.getPixelForValue(g);
+      ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(left + w, y); ctx.stroke();
+    });
+    ctx.restore();
+  }
+};
+
+// Draw vertical "Now" line at x = 0
+const nowLinePlugin = {
+  id: 'nowLine',
+  afterDraw(ch) {
+    const ctx    = ch.ctx;
+    const xScale = ch.scales.x;
+    if (!xScale) return;
+    const x = xScale.getPixelForValue(0);
+    ctx.save();
+    ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x, ch.chartArea.top);
+    ctx.lineTo(x, ch.chartArea.bottom);
+    ctx.stroke();
+    // Label
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.font = '11px system-ui,sans-serif';
+    ctx.fillText('Now', x + 4, ch.chartArea.top + 14);
+    ctx.restore();
+  }
+};
+
+Chart.register(euglycemicPlugin, nowLinePlugin);
+
+// ── Render chart ───────────────────────────────────────────────────────────────
+function renderChart(data, walkMin) {
+  const ctx = document.getElementById('trajectoryChart').getContext('2d');
+  if (chart) { chart.destroy(); chart = null; }
+
+  const datasets = [];
+
+  // ── SARIMAX CI band (walk scenario) — index 0 & 1, must come first for fill ──
+  const hasSarimax = data.sarimax && !data.sarimax.error;
+  if (hasSarimax) {
+    const sw = data.sarimax.walk;
+    datasets.push({
+      label: '_sarimax_ci_upper',
+      data: sw.t.map((t, i) => ({x: t, y: sw.upper[i]})),
+      borderColor: 'transparent',
+      backgroundColor: 'rgba(230,81,0,0.12)',
+      fill: '+1',
+      pointRadius: 0,
+      tension: 0.3,
+    });
+    datasets.push({
+      label: '_sarimax_ci_lower',
+      data: sw.t.map((t, i) => ({x: t, y: sw.lower[i]})),
+      borderColor: 'transparent',
+      fill: false,
+      pointRadius: 0,
+      tension: 0.3,
+    });
+  }
+
+  // ── CGM history (actual past readings) ────────────────────────────────────
+  if (data.history && data.history.length > 0) {
+    datasets.push({
+      label: 'CGM history',
+      data: data.history.map(h => ({x: h.offset_min, y: h.glucose})),
+      borderColor: '#757575',
+      backgroundColor: '#757575',
+      fill: false,
+      tension: 0.2,
+      pointRadius: 3,
+      borderWidth: 2,
+    });
+  }
+
+  // Current glucose anchor point at t=0
+  const cg = parseFloat(document.getElementById('current-glucose').value);
+  datasets.push({
+    label: 'Current glucose',
+    data: [{x: 0, y: cg}],
+    borderColor: '#1a1a2e',
+    backgroundColor: '#1a1a2e',
+    pointRadius: 7,
+    pointHoverRadius: 9,
+    fill: false,
+    showLine: false,
+  });
+
+  // ── SARIMAX lines ─────────────────────────────────────────────────────────
+  if (hasSarimax) {
+    const cg0 = {x: 0, y: cg};
+
+    // Walk scenario (solid)
+    const sw = data.sarimax.walk;
+    datasets.push({
+      label: 'SARIMAX + walk',
+      data: [cg0, ...sw.t.map((t, i) => ({x: t, y: sw.mean[i]}))],
+      borderColor: '#e65100',
+      backgroundColor: '#e65100',
+      fill: false,
+      tension: 0.3,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+      borderWidth: 2.5,
+      borderDash: [],
+    });
+
+    // No-walk scenario — only show if walk > 0
+    if (walkMin > 0) {
+      const nw = data.sarimax.no_walk;
+      datasets.push({
+        label: 'SARIMAX no walk',
+        data: [cg0, ...nw.t.map((t, i) => ({x: t, y: nw.mean[i]}))],
+        borderColor: '#e65100',
+        backgroundColor: 'transparent',
+        fill: false,
+        tension: 0.3,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        borderWidth: 1.5,
+        borderDash: [6, 4],
+      });
+    }
+  }
+
+  // ── LSTM trajectory V1 ────────────────────────────────────────────────────
+  const hasLstm = data.lstm_trajectory && !data.lstm_trajectory.error;
+  if (hasLstm) {
+    const cg0 = {x: 0, y: cg};
+    const lt  = data.lstm_trajectory;
+
+    datasets.push({
+      label: 'LSTM V1 + walk',
+      data: [cg0, ...lt.walk.t.map((t, i) => ({x: t, y: lt.walk.glucose[i]}))],
+      borderColor: '#1565c0',
+      backgroundColor: '#1565c0',
+      fill: false,
+      tension: 0.3,
+      pointRadius: 1.5,
+      pointHoverRadius: 5,
+      borderWidth: 2,
+      borderDash: [],
+    });
+
+    if (walkMin > 0) {
+      datasets.push({
+        label: 'LSTM V1 no walk',
+        data: [cg0, ...lt.no_walk.t.map((t, i) => ({x: t, y: lt.no_walk.glucose[i]}))],
+        borderColor: '#1565c0',
+        backgroundColor: 'transparent',
+        fill: false,
+        tension: 0.3,
+        pointRadius: 1.5,
+        pointHoverRadius: 5,
+        borderWidth: 1.5,
+        borderDash: [6, 4],
+      });
+    }
+  }
+
+  // ── LSTM trajectory V2 (per-step decaying exog) ───────────────────────────
+  const hasLstmV2 = data.lstm_trajectory_v2 && !data.lstm_trajectory_v2.error;
+  if (hasLstmV2) {
+    const cg0 = {x: 0, y: cg};
+    const lt2 = data.lstm_trajectory_v2;
+
+    datasets.push({
+      label: 'LSTM V2 + walk',
+      data: [cg0, ...lt2.walk.t.map((t, i) => ({x: t, y: lt2.walk.glucose[i]}))],
+      borderColor: '#2e7d32',
+      backgroundColor: '#2e7d32',
+      fill: false,
+      tension: 0.3,
+      pointRadius: 1.5,
+      pointHoverRadius: 5,
+      borderWidth: 2.5,
+      borderDash: [],
+    });
+
+    if (walkMin > 0) {
+      datasets.push({
+        label: 'LSTM V2 no walk',
+        data: [cg0, ...lt2.no_walk.t.map((t, i) => ({x: t, y: lt2.no_walk.glucose[i]}))],
+        borderColor: '#2e7d32',
+        backgroundColor: 'transparent',
+        fill: false,
+        tension: 0.3,
+        pointRadius: 1.5,
+        pointHoverRadius: 5,
+        borderWidth: 1.5,
+        borderDash: [6, 4],
+      });
+    }
+  }
+
+  // ── Parametric physiological reference ────────────────────────────────────
+  const hasRef = data.reference && !data.reference.error;
+  if (hasRef) {
+    const cg0  = {x: 0, y: cg};
+    const ref  = data.reference;
+    const sens = data.reference_sensitivity != null
+      ? `${data.reference_sensitivity} mg/dL·g⁻¹` : '';
+    const refLabel = sens ? `Reference (${sens})` : 'Reference (physio)';
+
+    datasets.push({
+      label: refLabel,
+      data: [cg0, ...ref.walk.t.map((t, i) => ({x: t, y: ref.walk.glucose[i]}))],
+      borderColor: '#757575',
+      backgroundColor: 'transparent',
+      fill: false,
+      tension: 0.3,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      borderWidth: 1.5,
+      borderDash: [8, 4],
+    });
+
+    if (walkMin > 0) {
+      datasets.push({
+        label: 'Reference no walk',
+        data: [cg0, ...ref.no_walk.t.map((t, i) => ({x: t, y: ref.no_walk.glucose[i]}))],
+        borderColor: '#bdbdbd',
+        backgroundColor: 'transparent',
+        fill: false,
+        tension: 0.3,
+        pointRadius: 0,
+        borderWidth: 1,
+        borderDash: [4, 4],
+      });
+    }
+  }
+
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            filter: item => !item.text.startsWith('_'),
+            boxWidth: 24,
+            padding: 12,
+          }
+        },
+        tooltip: {
+          filter: item => !item.dataset.label.startsWith('_'),
+          callbacks: {
+            label: item => ` ${item.dataset.label}: ${item.parsed.y} mg/dL`,
+          }
+        },
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          title: { display: true, text: 'Minutes from now' },
+          min: -65,
+          max: 185,
+          ticks: {
+            stepSize: 30,
+            callback: v => {
+              if (v === 0) return 'Now';
+              if (v > 0)  return `+${v}m`;
+              return `${v}m`;
+            },
+          },
+        },
+        y: {
+          title: { display: true, text: 'Glucose (mg/dL)' },
+          beginAtZero: false,
+        },
+      },
+    },
+  });
+}
+
+// ── Update info strip below the chart ─────────────────────────────────────────
+function updateInfoStrip(data) {
+  const strip = document.getElementById('info-strip');
+  strip.style.display = 'block';
+
+  function setCard(id, val, label) {
+    const el = document.getElementById(id);
+    el.querySelector('.value').textContent = val;
+    if (label) el.querySelector('.label').textContent = label;
+  }
+
+  if (data.sarimax && !data.sarimax.error) {
+    const peak = Math.max(...data.sarimax.walk.mean);
+    setCard('info-sarimax-peak', peak + ' mg/dL');
+  }
+
+  // Prefer V2 for the info strip; fall back to V1
+  const lstmSrc = (data.lstm_trajectory_v2 && !data.lstm_trajectory_v2.error)
+    ? data.lstm_trajectory_v2 : (data.lstm_trajectory && !data.lstm_trajectory.error)
+    ? data.lstm_trajectory : null;
+  const lstmLabel = (data.lstm_trajectory_v2 && !data.lstm_trajectory_v2.error)
+    ? 'LSTM V2 peak' : 'LSTM peak';
+
+  if (lstmSrc) {
+    const wg  = lstmSrc.walk.glucose;
+    const nwg = lstmSrc.no_walk.glucose;
+    const peakW   = Math.max(...wg);
+    const peakNW  = Math.max(...nwg);
+    const benefit = Math.round(peakNW - peakW);
+    const at3h    = wg[wg.length - 1];
+
+    setCard('info-lstm-peak',     peakW + ' mg/dL', lstmLabel);
+    setCard('info-walk-diff',
+      benefit > 0 ? `−${benefit} mg/dL` : benefit === 0 ? '0' : `+${Math.abs(benefit)} mg/dL`);
+    setCard('info-back-baseline', at3h + ' mg/dL');
+  }
+
+  if (data.reference && !data.reference.error) {
+    const refPeak = Math.max(...data.reference.walk.glucose);
+    // Show reference peak inline in the walk-diff card subtitle if no lstm data
+    if (!lstmSrc) {
+      setCard('info-lstm-peak', refPeak + ' mg/dL', 'Reference peak');
+    }
+  }
+}
+
+// ── Form submit ───────────────────────────────────────────────────────────────
+document.getElementById('forecast-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  const btn = document.getElementById('forecast-btn');
+  btn.disabled = true;
+  btn.textContent = 'Running…';
+  document.getElementById('chart-card').style.display = 'none';
+
+  // walk-hidden is already kept in sync by toggleWalk/oninput; just read it
+  const walkMin = parseFloat(document.getElementById('walk-hidden').value || 0);
+
+  try {
+    const fd   = new FormData(this);
+    const resp = await fetch('/forecast/preview', { method: 'POST', body: fd });
+    const data = await resp.json();
+
+    if (data.error) {
+      alert('Forecast error: ' + data.error);
+      return;
+    }
+
+    // Show/update cold-start note
+    document.getElementById('cold-start-note').textContent =
+      data.cold_start ? '(cold start — flat LSTM baseline)' : '';
+
+    // Collect model errors
+    const errs = [];
+    if (data.sarimax && data.sarimax.error)
+      errs.push('SARIMAX: ' + data.sarimax.error);
+    if (data.lstm_trajectory && data.lstm_trajectory.error)
+      errs.push('LSTM V1: ' + data.lstm_trajectory.error);
+    if (data.lstm_trajectory_v2 && data.lstm_trajectory_v2.error)
+      errs.push('LSTM V2: ' + data.lstm_trajectory_v2.error);
+    document.getElementById('model-errors').textContent = errs.join('  |  ');
+
+    renderChart(data, walkMin);
+    updateInfoStrip(data);
+    document.getElementById('chart-card').style.display = 'block';
+
+  } catch (err) {
+    alert('Request failed: ' + err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Generate forecast';
+  }
+});
+</script>
+{% endblock %}

@@ -8,12 +8,22 @@
   <p style="font-size:0.88rem; color:#555; margin-bottom:1rem">
     Exports all logged data to CSVs, rebuilds feature matrices, refits selected models,
     and records accuracy to the history below.
-    Ridge / RF ≈ 10–30 s &nbsp;·&nbsp; SARIMAX ≈ 3–5 min &nbsp;·&nbsp; LSTM ≈ 2–5 min (requires PyTorch).
+    Ridge / RF ≈ 10–30 s &nbsp;·&nbsp; SARIMAX ≈ 3–5 min &nbsp;·&nbsp; LSTM per-meal ≈ 2–5 min &nbsp;·&nbsp; LSTM 5-min / 3h ≈ 5–15 min (requires PyTorch).
   </p>
+
+  {% if err == "range_too_short" %}
+  <div class="alert alert-error" style="margin-bottom:1rem">
+    Date range must be at least 14 days (2 weeks). Please widen the range and try again.
+  </div>
+  {% endif %}
 
   {% if status.running %}
   <div class="alert alert-info" id="running-banner">
     <span class="spinner"></span>&nbsp; Training in progress since {{ status.started_at | localtime("%Y-%m-%d %H:%M") if status.started_at else "?" }}
+    {% if status.run_tag %}&nbsp;·&nbsp; run tag: <code>{{ status.run_tag }}</code>{% endif %}
+    {% if status.date_from or status.date_to %}
+    &nbsp;·&nbsp; data: <code>{{ status.date_from or '…' }} → {{ status.date_to or 'latest' }}</code>
+    {% endif %}
   </div>
   {% endif %}
 
@@ -25,10 +35,46 @@
         <label><input type="checkbox" name="models" value="rf"       checked> Random Forest (per-meal)</label>
         <label><input type="checkbox" name="models" value="sarimax"> SARIMAX (hourly)</label>
         <label><input type="checkbox" name="models" value="lstm">    LSTM (per-meal, requires PyTorch)</label>
-        <label><input type="checkbox" name="models" value="lstm5min"> LSTM 5-min (next-reading, requires PyTorch)</label>
+        <label><input type="checkbox" name="models" value="lstm5min">  LSTM 5-min (next-reading, requires PyTorch)</label>
+        <label><input type="checkbox" name="models" value="lstm3h">   LSTM 3h (direct 3-hour forecast, requires PyTorch)</label>
+        <label><input type="checkbox" name="models" value="lstmtraj">   LSTM Trajectory V1 (static exog, requires PyTorch)</label>
+        <label><input type="checkbox" name="models" value="lstmtrajv2"> LSTM Trajectory V2 (per-step decaying exog — recommended for /forecast, requires PyTorch)</label>
       </div>
     </div>
-    <button type="submit" class="btn btn-success" {{ "disabled" if status.running }}>
+    <div class="field">
+      <label>Data date range
+        <span style="font-weight:400; color:#888">(optional — leave blank to use all available data)</span>
+      </label>
+      <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-top:0.4rem">
+        <div style="display:flex; align-items:center; gap:0.4rem">
+          <span style="font-size:0.85rem; color:#555">From</span>
+          <input type="date" name="date_from" id="date-from"
+                 oninput="updateDateRange()"
+                 style="padding:0.35rem 0.5rem; border:1px solid #ccc; border-radius:4px; font-size:0.88rem">
+        </div>
+        <div style="display:flex; align-items:center; gap:0.4rem">
+          <span style="font-size:0.85rem; color:#555">to</span>
+          <input type="date" name="date_to" id="date-to"
+                 oninput="updateDateRange()"
+                 style="padding:0.35rem 0.5rem; border:1px solid #ccc; border-radius:4px; font-size:0.88rem">
+        </div>
+        <span id="date-range-note" style="font-size:0.82rem; color:#888"></span>
+      </div>
+      <small style="color:#888; display:block; margin-top:0.3rem">
+        When set, only data within this window is used for training and evaluation.
+        Minimum span: <strong>14 days</strong>. Per-meal models (Ridge, RF) need ≥6 weeks for a meaningful train/test split.
+      </small>
+    </div>
+
+    <div class="field" style="max-width:320px">
+      <label>Run label <span style="font-weight:400; color:#888">(optional — leave blank to auto-generate)</span></label>
+      <input type="text" name="run_label" placeholder="e.g. more-data  or  post-april-fix"
+             maxlength="30" pattern="[A-Za-z0-9_\-]*"
+             style="font-family:monospace"
+             title="Letters, digits, hyphens and underscores only">
+      <small style="color:#888">Auto-generates as <code>v{{ now_utc }}</code> if left blank. Used to group runs in the history table.</small>
+    </div>
+    <button type="submit" id="run-btn" class="btn btn-success" {{ "disabled" if status.running }}>
       Run training
     </button>
   </form>
@@ -60,13 +106,73 @@
   </a>
 </div>
 
+{% if chart_series %}
+<!-- chartjs-adapter-date-fns enables the time scale in Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<div class="card">
+  <h2>Model accuracy over time
+    <span style="font-size:0.82rem; font-weight:400; color:#888">— test RMSE (mg/dL), lower is better</span>
+  </h2>
+  <canvas id="accuracyChart" height="80"></canvas>
+  <script>
+  new Chart(document.getElementById('accuracyChart'), {
+    type: 'line',
+    data: {
+      datasets: {{ chart_series | tojson }}.map(s => ({
+        label:       s.label,
+        data:        s.data,          // [{x: "2026-05-28T14:23", y: 33.86}, ...]
+        borderColor: s.color,
+        backgroundColor: s.color + '22',
+        tension:     0.3,
+        fill:        false,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+      }))
+    },
+    options: {
+      plugins: {
+        legend: { position: 'bottom' },
+        tooltip: {
+          callbacks: {
+            title: items => items[0].label,   // already formatted by time scale
+            label: item  => ` ${item.dataset.label}: ${item.parsed.y} mg/dL`,
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: {
+            tooltipFormat: 'MMM d, HH:mm',
+            displayFormats: {
+              minute: 'MMM d HH:mm',
+              hour:   'MMM d HH:mm',
+              day:    'MMM d',
+              month:  'MMM yyyy',
+            }
+          },
+          ticks: { maxTicksLimit: 10, maxRotation: 30 },
+          title: { display: false }
+        },
+        y: {
+          title: { display: true, text: 'RMSE (mg/dL)' },
+          beginAtZero: false,
+        }
+      }
+    }
+  });
+  </script>
+</div>
+{% endif %}
+
 <div class="card">
   <h2>Accuracy history</h2>
   {% if runs %}
   <table>
     <thead>
       <tr>
-        <th>Run time (UTC)</th>
+        <th style="width:140px">Run tag</th>
+        <th>Time (UTC)</th>
         <th>Model</th>
         <th>RMSE train</th>
         <th>RMSE test</th>
@@ -77,23 +183,38 @@
       </tr>
     </thead>
     <tbody>
+      {% set ns = namespace(prev_tag="__none__", shade=0) %}
       {% for r in runs %}
-      <tr>
-        <td>{{ r.run_ts | localtime("%Y-%m-%d %H:%M") }}</td>
-        <td><span class="badge badge-gray">{{ r.model_name }}</span></td>
-        <td>{{ "%.2f"|format(r.rmse_train) if r.rmse_train else "-" }}</td>
-        <td>
-          {% if r.rmse_test %}
-            <span class="{{ 'badge-green' if r.rmse_test < 35 else ('badge-orange' if r.rmse_test < 45 else 'badge-red') }} badge">
-              {{ "%.2f"|format(r.rmse_test) }}
-            </span>
-          {% else %}-{% endif %}
-        </td>
-        <td>{{ "%.2f"|format(r.mae_test) if r.mae_test else "-" }}</td>
-        <td>{{ "%.3f"|format(r.r2_test)  if r.r2_test  else "-" }}</td>
-        <td>{{ r.n_train or "-" }}</td>
-        <td>{{ r.n_test  or "-" }}</td>
-      </tr>
+        {% set is_new_group = r.run_tag != ns.prev_tag %}
+        {% if is_new_group %}
+          {% set ns.prev_tag = r.run_tag %}
+          {% set ns.shade = 1 - ns.shade %}
+        {% endif %}
+        <tr style="{{ 'background:#f0f4ff' if ns.shade else '' }}">
+          <td style="font-family:monospace; font-size:0.8rem; white-space:nowrap">
+            {% if is_new_group %}
+              {% if r.run_tag %}
+              <span class="badge badge-gray" style="font-family:monospace">{{ r.run_tag }}</span>
+              {% else %}
+              <span style="color:#ccc">—</span>
+              {% endif %}
+            {% endif %}
+          </td>
+          <td style="font-size:0.82rem; white-space:nowrap">{{ r.run_ts | localtime("%b %-d %H:%M") }}</td>
+          <td><span class="badge badge-gray">{{ r.model_name }}</span></td>
+          <td>{{ "%.2f"|format(r.rmse_train) if r.rmse_train else "-" }}</td>
+          <td>
+            {% if r.rmse_test %}
+              <span class="{{ 'badge-green' if r.rmse_test < 35 else ('badge-orange' if r.rmse_test < 45 else 'badge-red') }} badge">
+                {{ "%.2f"|format(r.rmse_test) }}
+              </span>
+            {% else %}-{% endif %}
+          </td>
+          <td>{{ "%.2f"|format(r.mae_test) if r.mae_test else "-" }}</td>
+          <td>{{ "%.3f"|format(r.r2_test)  if r.r2_test  else "-" }}</td>
+          <td>{{ r.n_train or "-" }}</td>
+          <td>{{ r.n_test  or "-" }}</td>
+        </tr>
       {% endfor %}
     </tbody>
   </table>
@@ -103,14 +224,76 @@
 </div>
 
 <script>
-// Poll /training/status every 3s while running; refresh page when done
+// ── Date-range validation ──────────────────────────────────────────────────────
+function updateDateRange() {
+  const from = document.getElementById('date-from').value;
+  const to   = document.getElementById('date-to').value;
+  const note = document.getElementById('date-range-note');
+  const btn  = document.getElementById('run-btn');
+
+  if (!from && !to) {
+    note.textContent = '';
+    btn.disabled = false;
+    return;
+  }
+
+  if (from && !to) {
+    note.textContent = 'All data from ' + from + ' onwards.';
+    note.style.color = '#555';
+    btn.disabled = false;
+    return;
+  }
+
+  if (!from && to) {
+    note.textContent = 'All data up to ' + to + '.';
+    note.style.color = '#555';
+    btn.disabled = false;
+    return;
+  }
+
+  // Both set — check span
+  const d1   = new Date(from);
+  const d2   = new Date(to);
+  const days = Math.round((d2 - d1) / 86400000);
+
+  if (d2 < d1) {
+    note.textContent = '⚠ End date is before start date.';
+    note.style.color = '#c62828';
+    btn.disabled = true;
+    return;
+  }
+  if (days < 14) {
+    note.textContent = `⚠ Only ${days} day${days !== 1 ? 's' : ''} — minimum is 14 days (2 weeks).`;
+    note.style.color = '#c62828';
+    btn.disabled = true;
+    return;
+  }
+
+  const weeks = (days / 7).toFixed(1);
+  if (days < 42) {
+    note.textContent = `${days} days (${weeks} wk) — note: per-meal models need ≥6 wk for a good train/test split.`;
+    note.style.color = '#e65100';
+  } else {
+    note.textContent = `${days} days (${weeks} wk) ✓`;
+    note.style.color = '#2e7d32';
+  }
+  btn.disabled = false;
+}
+
+// Run on page load in case the browser restores values
+updateDateRange();
+
+// ── Poll /training/status every 3s while running; refresh page when done ──────
 (function poll() {
   fetch('/training/status')
     .then(r => r.json())
     .then(s => {
       if (s.running) {
         const logEl = document.getElementById('pipeline-log');
-        if (logEl && s.log) logEl.textContent = s.log.join('\n');
+        if (logEl && s.log) {
+          logEl.textContent = s.log.join('\n');
+          logEl.scrollTop = logEl.scrollHeight;   // auto-scroll to latest line
+        }
         setTimeout(poll, 3000);
       } else if (document.getElementById('running-banner')) {
         // Was running; now done - reload to show updated history

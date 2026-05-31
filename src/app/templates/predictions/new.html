@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% block title %}New Prediction - CGM Tracker{% endblock %}
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+  <h1 style="margin:0">New prediction
+    <span style="font-size:0.85rem; color:#666; font-weight:400">— where will glucose be in 3 hours?</span>
+  </h1>
+  <a href="/predictions/" class="btn btn-primary btn-sm" style="background:#555">← History</a>
+</div>
+
+<!-- ── Input card ──────────────────────────────────────────────────────────── -->
+<div class="card">
+  <div class="form-row" style="align-items:flex-start; gap:2rem;">
+
+    <!-- Left column: current state -->
+    <div style="flex:1; min-width:220px;">
+      <h2>Current state</h2>
+      <div class="field">
+        <label>Glucose now (mg/dL)
+          <span style="font-size:0.78rem; color:#888; font-weight:400">
+            — from {{ latest_cgm_ts }}
+          </span>
+        </label>
+        <input type="number" id="baseline_glucose" value="{{ baseline_glucose | round(0) | int }}"
+               min="40" max="450" step="1">
+      </div>
+      <div class="field">
+        <label>Meal time</label>
+        <input type="datetime-local" id="meal_ts" value="{{ now_local }}">
+      </div>
+      <div class="field" style="display:flex; gap:1rem;">
+        <div style="flex:1">
+          <label>Hours fasted</label>
+          <input type="number" id="prev_fast_hours" value="{{ prev_fast_hours }}" min="0" step="0.5">
+        </div>
+        <div style="flex:1">
+          <label>Min since Glipizide
+            <span style="font-size:0.75rem; color:#999; font-weight:400" id="glip-hint">
+              {% if min_since_glip >= 999 %}(no record){% else %}(auto-filled){% endif %}
+            </span>
+          </label>
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <input type="number" id="min_since_glip"
+                   value="{{ min_since_glip | int }}"
+                   min="0" max="999" step="5"
+                   style="flex:1"
+                   {% if min_since_glip >= 999 %}disabled{% endif %}>
+            <label style="white-space:nowrap; font-weight:400; font-size:0.82rem; display:flex; align-items:center; gap:0.3rem; margin:0">
+              <input type="checkbox" id="glip-not-taken" style="width:auto; margin:0"
+                     {% if min_since_glip >= 999 %}checked{% endif %}
+                     onchange="toggleGlip(this)">
+              Not taken
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label style="display:flex; align-items:center; gap:0.5rem; font-weight:400">
+          <input type="checkbox" id="fasted" {% if is_fasted %}checked{% endif %}
+                 style="width:auto; margin:0">
+          Fasted meal (≥ 4h since last meal)
+        </label>
+      </div>
+    </div>
+
+    <!-- Right column: meal details -->
+    <div style="flex:1; min-width:220px;">
+      <h2>Meal details
+        {% if prefill_meal %}
+        <span style="font-size:0.78rem; color:#888; font-weight:400">
+          — pre-filled from last logged meal
+        </span>
+        {% endif %}
+      </h2>
+      <div class="field">
+        <label>Meal / dish name <span style="color:#888; font-weight:400">(optional)</span></label>
+        <input type="text" id="meal_name"
+               value="{{ prefill_meal.dish_names or '' if prefill_meal else '' }}"
+               placeholder="e.g. Rice + dal">
+      </div>
+      <div class="field">
+        <label>Carbohydrates (g)</label>
+        <input type="number" id="carbs_g" min="0" max="300" step="1"
+               value="{{ (prefill_meal.carbs_grams_logged or prefill_meal.carbs_grams_estimated or '') | int if prefill_meal else '' }}"
+               placeholder="e.g. 60">
+      </div>
+      <div class="field">
+        <label style="display:flex; align-items:center; gap:0.5rem; font-weight:400">
+          <input type="checkbox" id="walk-planned" style="width:auto; margin:0"
+                 onchange="toggleWalk(this)">
+          Planning to walk after meal
+        </label>
+        <div id="walk-input-row" style="display:none; margin-top:0.4rem; align-items:center; gap:0.5rem;">
+          <input type="number" id="walk_min_after" min="0" max="180" step="5" value="30"
+                 style="width:90px">
+          <span style="font-size:0.82rem; color:#666">minutes</span>
+          <span style="font-size:0.78rem; color:#999">(used by Ridge, RF &amp; SARIMAX; not LSTM)</span>
+        </div>
+      </div>
+      {% if prefill_meal_id %}
+      <input type="hidden" id="meal_id" value="{{ prefill_meal_id }}">
+      {% endif %}
+
+      <button type="button" id="run-btn" class="btn btn-success" style="margin-top:0.5rem; width:100%"
+              onclick="runPredictions()">
+        ▶ Run predictions
+      </button>
+      <p id="run-error" style="color:#c62828; font-size:0.82rem; margin-top:0.5rem; display:none"></p>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Results card (hidden until predictions run) ────────────────────────── -->
+<div id="results-card" class="card" style="display:none">
+  <h2>Model predictions
+    <span id="results-subtitle" style="font-size:0.82rem; color:#888; font-weight:400"></span>
+  </h2>
+
+  <div class="cards-row" id="pred-cards" style="margin-bottom:1rem"></div>
+
+  <div class="alert alert-info" style="font-size:0.82rem; margin-bottom:1rem">
+    <strong>Peak ↑</strong> = predicted maximum rise above baseline (typically 90–150 min post-meal).
+    Ridge &amp; RF are trained directly on this target.
+    SARIMAX derives it as the maximum of its T+1h / T+2h forecast steps.
+    <strong>LSTM 3h</strong> only predicts the <em>T+3h</em> absolute glucose and does not estimate the earlier peak.
+    SARIMAX reflects training-period patterns and may be less accurate for novel meal sizes.
+  </div>
+
+  <!-- Hidden form for saving -->
+  <form method="post" action="/predictions/save" id="save-form">
+    <input type="hidden" name="baseline_glucose"  id="h-baseline">
+    <input type="hidden" name="carbs_g"           id="h-carbs">
+    <input type="hidden" name="meal_name"         id="h-meal-name">
+    <input type="hidden" name="meal_id"           id="h-meal-id">
+    <input type="hidden" name="meal_ts"           id="h-meal-ts">
+    <input type="hidden" name="fasted"            id="h-fasted">
+    <input type="hidden" name="prev_fast_hours"   id="h-fast-hours">
+    <input type="hidden" name="min_since_glip"    id="h-glip">
+    <input type="hidden" name="walk_min_after"    id="h-walk-min">
+    <input type="hidden" name="predictions_json"  id="h-preds-json">
+    <button type="submit" class="btn btn-primary">💾 Save prediction</button>
+    <span style="font-size:0.82rem; color:#888; margin-left:0.75rem">
+      Actual glucose will be filled in automatically on your next CGM upload.
+    </span>
+  </form>
+</div>
+
+<script>
+function toggleWalk(cb) {
+  const row = document.getElementById('walk-input-row');
+  row.style.display = cb.checked ? 'flex' : 'none';
+  if (!cb.checked) document.getElementById('walk_min_after').value = 0;
+}
+
+function toggleGlip(cb) {
+  const inp = document.getElementById('min_since_glip');
+  const hint = document.getElementById('glip-hint');
+  if (cb.checked) {
+    inp.disabled = true;
+    inp.value = 999;
+    hint.textContent = '(no record)';
+  } else {
+    inp.disabled = false;
+    inp.value = 30;
+    hint.textContent = '';
+  }
+}
+
+async function runPredictions() {
+  const btn = document.getElementById('run-btn');
+  const errEl = document.getElementById('run-error');
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = '⏳ Running…';
+
+  const payload = new FormData();
+  payload.append('baseline_glucose', document.getElementById('baseline_glucose').value);
+  payload.append('carbs_g',          document.getElementById('carbs_g').value || '0');
+  payload.append('meal_ts',          document.getElementById('meal_ts').value);
+  payload.append('fasted',           document.getElementById('fasted').checked ? 'true' : 'false');
+  payload.append('prev_fast_hours',  document.getElementById('prev_fast_hours').value);
+  const glipNotTaken = document.getElementById('glip-not-taken').checked;
+  payload.append('min_since_glip',   glipNotTaken ? '999' : document.getElementById('min_since_glip').value);
+  const walkPlanned = document.getElementById('walk-planned').checked;
+  payload.append('walk_min_after',   walkPlanned ? document.getElementById('walk_min_after').value : '0');
+
+  try {
+    const resp = await fetch('/predictions/preview', { method: 'POST', body: payload });
+    const data = await resp.json();
+
+    if (!data.ok) { throw new Error(data.detail || 'Server error'); }
+
+    renderCards(data.predictions, parseFloat(document.getElementById('baseline_glucose').value));
+    document.getElementById('results-subtitle').textContent =
+      '— predicted for ' + (data.predict_for_local || data.predict_for_ts);
+
+    // Fill hidden save-form fields
+    document.getElementById('h-baseline').value   = document.getElementById('baseline_glucose').value;
+    document.getElementById('h-carbs').value      = document.getElementById('carbs_g').value || '0';
+    document.getElementById('h-meal-name').value  = document.getElementById('meal_name').value;
+    document.getElementById('h-meal-id').value    = document.getElementById('meal_id') ? document.getElementById('meal_id').value : '';
+    document.getElementById('h-meal-ts').value    = document.getElementById('meal_ts').value;
+    document.getElementById('h-fasted').value     = document.getElementById('fasted').checked ? 'on' : '';
+    document.getElementById('h-fast-hours').value = document.getElementById('prev_fast_hours').value;
+    document.getElementById('h-glip').value       = glipNotTaken ? '999' : document.getElementById('min_since_glip').value;
+    document.getElementById('h-walk-min').value   = walkPlanned ? document.getElementById('walk_min_after').value : '0';
+    document.getElementById('h-preds-json').value = JSON.stringify(data.predictions);
+
+    document.getElementById('results-card').style.display = '';
+    document.getElementById('results-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch (e) {
+    errEl.textContent = 'Error: ' + e.message;
+    errEl.style.display = '';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ Run predictions';
+  }
+}
+
+function renderCards(preds, baseline) {
+  const container = document.getElementById('pred-cards');
+  container.innerHTML = '';
+
+  const models = [
+    { key: 'ridge',   label: 'Ridge',    color: '#1565c0', subtitle: 'peak rise · meal features' },
+    { key: 'rf',      label: 'RF',       color: '#2e7d32', subtitle: 'peak rise · meal features' },
+    { key: 'lstm3h',  label: 'LSTM 3h',  color: '#6a1b9a', subtitle: 'T+3h glucose · CGM trajectory' },
+    { key: 'sarimax', label: 'SARIMAX',  color: '#e65100', subtitle: 'peak + T+3h · time-series' },
+  ];
+
+  for (const m of models) {
+    const r = preds[m.key];
+    let body = '';
+
+    if (r === null) {
+      body = '<div style="color:#bbb; font-size:0.85rem; margin-top:0.5rem">Model not trained yet</div>';
+    } else if (r && r.error) {
+      body = `<div style="color:#c62828; font-size:0.78rem; margin-top:0.5rem">${r.error}</div>`;
+    } else if (r) {
+      const peak     = r.predicted_peak_delta;
+      const delta3h  = r.predicted_delta;
+      const abs_g    = r.predicted_glucose_3h;
+
+      // Peak row (Ridge/RF/SARIMAX have it; LSTM does not)
+      let peakHtml = '';
+      if (peak != null) {
+        const sign = peak >= 0 ? '+' : '';
+        const col  = peak >= 40 ? '#c62828' : peak >= 25 ? '#e65100' : '#2e7d32';
+        peakHtml = `
+          <div style="font-size:0.75rem; color:#999; margin-top:0.5rem; text-transform:uppercase; letter-spacing:0.04em">Peak ↑ (90–150 min)</div>
+          <div style="font-size:2rem; font-weight:700; color:${col}; line-height:1.1">
+            ${sign}${peak.toFixed(0)} <span style="font-size:1rem; color:#666">mg/dL</span>
+          </div>`;
+      } else {
+        peakHtml = `<div style="font-size:0.78rem; color:#bbb; margin-top:0.5rem">Peak: n/a</div>`;
+      }
+
+      // T+3h row (all models have it)
+      const sign3h = delta3h >= 0 ? '+' : '';
+      const col3h  = peak == null  // LSTM: colour the T+3h value instead
+        ? (delta3h >= 40 ? '#c62828' : delta3h >= 25 ? '#e65100' : '#2e7d32')
+        : '#555';
+      const t3hStyle = peak == null
+        ? `font-size:2rem; font-weight:700; color:${col3h}; line-height:1.1`
+        : `font-size:0.88rem; color:${col3h}`;
+      const t3hLabel = peak == null
+        ? `<div style="font-size:0.75rem; color:#999; margin-top:0.5rem; text-transform:uppercase; letter-spacing:0.04em">T+3h</div>`
+        : '';
+      body = `
+        ${peakHtml}
+        ${t3hLabel}
+        <div style="${t3hStyle}; margin-top:0.2rem">
+          ${sign3h}${delta3h.toFixed(0)} mg/dL &nbsp;<span style="font-size:0.82rem; color:#888">→ ${abs_g.toFixed(0)} mg/dL</span>
+        </div>`;
+    }
+
+    const card = document.createElement('div');
+    card.className = 'stat-card';
+    card.style.cssText = `border-top: 4px solid ${m.color}; min-width:160px; text-align:left`;
+    card.innerHTML = `
+      <div style="font-weight:700; color:${m.color}">${m.label}</div>
+      <div style="font-size:0.75rem; color:#999">${m.subtitle}</div>
+      ${body}`;
+    container.appendChild(card);
+  }
+}
+</script>
+{% endblock %}

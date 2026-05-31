@@ -8,9 +8,9 @@ import bisect
 import json
 import pytz
 from app.database import get_db
+from app.models.activity import Activity
 from app.models.cgm import CGMReading
 from app.models.meal import Meal
-from app.models.activity import Activity
 from app.models.model_run import ModelRun
 from app.services.timezone import get_cached_tz
 from app.shared_templates import templates
@@ -62,20 +62,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         .all()
     )
 
-    # Model run history for chart (last 30 runs per model)
-    runs = (
-        db.query(ModelRun)
-        .order_by(ModelRun.run_ts.desc())
-        .limit(150)
-        .all()
-    )
-    runs_ridge    = [r for r in runs if r.model_name == "ridge_per_meal"][:30][::-1]
-    runs_rf       = [r for r in runs if r.model_name == "rf_per_meal"][:30][::-1]
-    runs_sarimax  = [r for r in runs if r.model_name == "sarimax_hourly"][:30][::-1]
-    runs_lstm     = [r for r in runs if r.model_name == "lstm_per_meal"][:30][::-1]
-    runs_lstm5min = [r for r in runs if r.model_name == "lstm_5min_forecaster"][:30][::-1]
-
-    last_run = runs[0] if runs else None
+    last_run = db.query(ModelRun).order_by(ModelRun.run_ts.desc()).first()
 
     # ── Heatmap data: past 91 days aggregated by local calendar date ──────────
     heatmap_start = now - timedelta(days=91)
@@ -106,11 +93,6 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "last_run":     last_run,
         "today_meals":  today_meals,
         "today_acts":   today_acts,
-        "runs_ridge":      runs_ridge,
-        "runs_rf":         runs_rf,
-        "runs_sarimax":    runs_sarimax,
-        "runs_lstm":       runs_lstm,
-        "runs_lstm5min":   runs_lstm5min,
         "carbs_by_date":   json.dumps(carbs_by_date),
         "walk_by_date":    json.dumps(walk_by_date),
     })

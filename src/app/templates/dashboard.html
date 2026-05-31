@@ -33,47 +33,6 @@
   </a>
 </div>
 
-{% if runs_ridge or runs_rf or runs_sarimax or runs_lstm or runs_lstm5min %}
-<div class="card">
-  <h2>Model accuracy over time (test RMSE, mg/dL)</h2>
-  <canvas id="accuracyChart" height="90"></canvas>
-</div>
-<script>
-  const ridgeLabels    = {{ runs_ridge    | map(attribute='run_ts') | map('string') | list | tojson }};
-  const ridgeRmse      = {{ runs_ridge    | map(attribute='rmse_test') | list | tojson }};
-  const rfLabels       = {{ runs_rf       | map(attribute='run_ts') | map('string') | list | tojson }};
-  const rfRmse         = {{ runs_rf       | map(attribute='rmse_test') | list | tojson }};
-  const sarimaxLabels  = {{ runs_sarimax  | map(attribute='run_ts') | map('string') | list | tojson }};
-  const sarimaxRmse    = {{ runs_sarimax  | map(attribute='rmse_test') | list | tojson }};
-  const lstmLabels     = {{ runs_lstm     | map(attribute='run_ts') | map('string') | list | tojson }};
-  const lstmRmse       = {{ runs_lstm     | map(attribute='rmse_test') | list | tojson }};
-  const lstm5minLabels = {{ runs_lstm5min | map(attribute='run_ts') | map('string') | list | tojson }};
-  const lstm5minRmse   = {{ runs_lstm5min | map(attribute='rmse_test') | list | tojson }};
-
-  // Use the longest label set for the x-axis
-  const allSeries = [ridgeLabels, rfLabels, sarimaxLabels, lstmLabels, lstm5minLabels];
-  const chartLabels = allSeries.reduce((a, b) => a.length >= b.length ? a : b, []);
-
-  new Chart(document.getElementById('accuracyChart'), {
-    type: 'line',
-    data: {
-      labels: chartLabels,
-      datasets: [
-        { label: 'Ridge (per-meal)',    data: ridgeRmse,    borderColor: '#1a1a2e', tension: 0.3, fill: false },
-        { label: 'RF (per-meal)',       data: rfRmse,       borderColor: '#2e7d32', tension: 0.3, fill: false },
-        { label: 'SARIMAX (hourly)',    data: sarimaxRmse,  borderColor: '#e65100', tension: 0.3, fill: false },
-        { label: 'LSTM (per-meal)',     data: lstmRmse,     borderColor: '#6a1b9a', tension: 0.3, fill: false },
-        { label: 'LSTM 5-min (next)',   data: lstm5minRmse, borderColor: '#0277bd', tension: 0.3, fill: false },
-      ]
-    },
-    options: {
-      plugins: { legend: { position: 'bottom' } },
-      scales: { y: { title: { display: true, text: 'RMSE (mg/dL)' } } }
-    }
-  });
-</script>
-{% endif %}
-
 <!-- Weekly CGM overlay chart -->
 <div class="card">
   <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem;">

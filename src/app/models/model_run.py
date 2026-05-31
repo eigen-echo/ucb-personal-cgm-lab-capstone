@@ -17,3 +17,4 @@ class ModelRun(Base):
     n_test       = Column(Integer, nullable=True)
     notes        = Column(Text, nullable=True)
     triggered_by = Column(String, default="web_app")  # always web_app; notebook runs never recorded here
+    run_tag      = Column(String, nullable=True, index=True)  # shared across all models in one pipeline run

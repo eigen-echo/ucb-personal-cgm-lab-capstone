@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.database import init_db, SessionLocal, DB_PATH
 from app.models.app_config import AppConfig
 from app.models.food_item import FoodItem
-from app.routers import dashboard, meals, activities, cgm, food_lookup, training, spikes, config
+from app.routers import dashboard, meals, activities, cgm, food_lookup, training, spikes, config, predictions, medications, forecast
 
 DATA_RAW = os.environ.get("DATA_RAW_DIR", "/app/data/raw")
 
@@ -26,14 +26,17 @@ def _migrate_db():
     """Add columns introduced after the initial schema. Safe to run every startup."""
     new_cols = [
         # (table, column, sqlite_type)
-        ("activities", "calories_burned",     "REAL"),
-        ("activities", "distance_km",         "REAL"),
-        ("activities", "steps",               "INTEGER"),
-        ("activities", "avg_pace_min_per_km", "REAL"),
-        ("activities", "avg_heart_rate_bpm",  "INTEGER"),
-        ("activities", "cardio_load",         "REAL"),
-        ("activities", "elevation_gain_m",    "REAL"),
-        ("activities", "active_zone_min",     "INTEGER"),
+        ("activities",         "calories_burned",     "REAL"),
+        ("activities",         "distance_km",         "REAL"),
+        ("activities",         "steps",               "INTEGER"),
+        ("activities",         "avg_pace_min_per_km", "REAL"),
+        ("activities",         "avg_heart_rate_bpm",  "INTEGER"),
+        ("activities",         "cardio_load",         "REAL"),
+        ("activities",         "elevation_gain_m",    "REAL"),
+        ("activities",         "active_zone_min",     "INTEGER"),
+        ("glucose_predictions","sarimax_peak_delta",  "REAL"),
+        ("glucose_predictions","model_run_tag",       "TEXT"),
+        ("model_runs",         "run_tag",             "TEXT"),
     ]
     with sqlite3.connect(DB_PATH) as conn:
         for table, col, col_type in new_cols:
@@ -97,3 +100,6 @@ app.include_router(food_lookup.router)
 app.include_router(training.router)
 app.include_router(spikes.router)
 app.include_router(config.router)
+app.include_router(predictions.router)
+app.include_router(medications.router)
+app.include_router(forecast.router)

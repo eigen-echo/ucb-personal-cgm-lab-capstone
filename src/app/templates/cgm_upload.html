@@ -30,6 +30,13 @@
     <a href="/spikes/review" style="font-weight:700; color:#0d47a1">Review now →</a>
   </div>
   {% endif %}
+  {% if result.matched_preds %}
+  <div class="alert alert-success" style="margin-top:0.5rem">
+    ✓ <strong>{{ result.matched_preds }} saved prediction{{ "s" if result.matched_preds != 1 }}</strong>
+    now have actuals matched. &nbsp;
+    <a href="/predictions/" style="font-weight:700; color:#2e7d32">View results →</a>
+  </div>
+  {% endif %}
   {% endif %}
 {% endif %}
 

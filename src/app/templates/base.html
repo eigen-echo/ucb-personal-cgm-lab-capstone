@@ -103,10 +103,13 @@
   <span class="brand">CGM Tracker</span>
   <a href="/"           {% if request.url.path == "/" %}class="active"{% endif %}>Dashboard</a>
   <a href="/meals/"     {% if "/meals" in request.url.path %}class="active"{% endif %}>Meals</a>
-  <a href="/activities/" {% if "/activities" in request.url.path %}class="active"{% endif %}>Activity</a>
-  <a href="/cgm/upload" {% if "/cgm" in request.url.path %}class="active"{% endif %}>Upload CGM</a>
-  <a href="/food/"      {% if "/food" in request.url.path %}class="active"{% endif %}>Food Lookup</a>
-  <a href="/training/"  {% if "/training" in request.url.path %}class="active"{% endif %}>Training</a>
+  <a href="/activities/"   {% if "/activities"  in request.url.path %}class="active"{% endif %}>Activity</a>
+  <a href="/medications/"  {% if "/medications" in request.url.path %}class="active"{% endif %}>Medications</a>
+  <a href="/cgm/upload"    {% if "/cgm"         in request.url.path %}class="active"{% endif %}>Upload CGM</a>
+  <a href="/food/"        {% if "/food" in request.url.path %}class="active"{% endif %}>Food Lookup</a>
+  <a href="/predictions/" {% if "/predictions" in request.url.path %}class="active"{% endif %}>Predictions</a>
+  <a href="/forecast/"   {% if "/forecast"    in request.url.path %}class="active"{% endif %}>Forecast</a>
+  <a href="/training/"    {% if "/training" in request.url.path %}class="active"{% endif %}>Training</a>
   <a href="/spikes/review" {% if "/spikes" in request.url.path %}class="active"{% endif %}>
     Spikes{% if _ps %} <span style="background:#c62828;color:#fff;border-radius:10px;padding:0.1rem 0.45rem;font-size:0.72rem;font-weight:700;margin-left:0.25rem">{{ _ps }}</span>{% endif %}
   </a>

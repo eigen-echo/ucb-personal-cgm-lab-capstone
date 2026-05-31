@@ -47,6 +47,8 @@
         <td>{{ "yes" if m.fasted_meal else "-" }}</td>
         <td style="color:#888; font-size:0.82rem">{{ m.notes or "" }}</td>
         <td style="white-space:nowrap">
+          <a href="/predictions/new?meal_id={{ m.id }}" class="btn btn-sm"
+             style="background:#6a1b9a; color:#fff">Predict</a>
           <a href="/meals/{{ m.id }}/edit" class="btn btn-primary btn-sm">Edit</a>
           <form method="post" action="/meals/{{ m.id }}/delete" style="display:inline"
                 onsubmit="return confirm('Delete this meal?')">

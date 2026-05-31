@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+{% block title %}Medications - CGM Tracker{% endblock %}
+{% block content %}
+
+<!-- ── Header ──────────────────────────────────────────────────────────────── -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem; flex-wrap:wrap; gap:0.75rem;">
+  <h1 style="margin:0">Medication Log
+    <span style="font-size:0.85rem; color:#666; font-weight:400">— Glipizide · twice daily</span>
+  </h1>
+  <div style="display:flex; align-items:center; gap:0.5rem;">
+    <a href="/medications/?week={{ prev_week }}" class="btn btn-secondary btn-sm">← Prev</a>
+    <span style="font-size:0.9rem; font-weight:600; min-width:210px; text-align:center; color:#1a1a2e">
+      {{ week_start.strftime('%b %-d') }} – {{ week_end.strftime('%b %-d, %Y') }}
+    </span>
+    <a href="/medications/?week={{ next_week }}" class="btn btn-secondary btn-sm">Next →</a>
+    <a href="/medications/" class="btn btn-primary btn-sm">Today</a>
+  </div>
+</div>
+
+{% if msg %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<!-- ── Fill-time overrides ──────────────────────────────────────────────────── -->
+<div style="background:#f5f9ff; border:1px solid #d0e4f7; border-radius:6px;
+            padding:0.6rem 1rem; margin-bottom:1.25rem;
+            display:flex; gap:1.5rem; align-items:center; flex-wrap:wrap">
+  <span style="font-size:0.85rem; font-weight:600; color:#1565c0">Default fill times</span>
+  <label style="font-size:0.85rem; color:#444; display:flex; align-items:center; gap:0.4rem">
+    Dose 1:
+    <input type="time" id="dose1-time" value="{{ default_dose1_time }}"
+           oninput="saveDefaultTimes()"
+           style="padding:2px 6px; border:1px solid #aac; border-radius:4px; font-size:0.85rem">
+  </label>
+  <label style="font-size:0.85rem; color:#444; display:flex; align-items:center; gap:0.4rem">
+    Dose 2:
+    <input type="time" id="dose2-time" value="{{ default_dose2_time }}"
+           oninput="saveDefaultTimes()"
+           style="padding:2px 6px; border:1px solid #aac; border-radius:4px; font-size:0.85rem">
+  </label>
+  <span style="font-size:0.78rem; color:#888">
+    Used by <strong>Fill defaults</strong> and <strong>Skip day</strong>.
+    Saved in your browser — override to e.g. 13:00 &amp; 21:00 when needed.
+  </span>
+</div>
+
+<!-- ── Stats row ───────────────────────────────────────────────────────────── -->
+<div class="cards-row" style="margin-bottom:1.5rem;">
+  <div class="stat-card {% if stats.taken == 14 %}good{% elif stats.taken >= 10 %}warn{% else %}high{% endif %}">
+    <div class="value">{{ stats.taken }}</div>
+    <div class="label">Doses taken this week</div>
+  </div>
+  <div class="stat-card {% if stats.skipped == 0 %}good{% else %}warn{% endif %}">
+    <div class="value">{{ stats.skipped }}</div>
+    <div class="label">Explicitly skipped</div>
+  </div>
+  <div class="stat-card {% if stats.missing == 0 %}good{% else %}warn{% endif %}">
+    <div class="value">{{ stats.missing }}</div>
+    <div class="label">No record</div>
+  </div>
+  <div class="stat-card">
+    <div class="value" style="font-size:1.5rem">
+      {% if stats.taken + stats.skipped > 0 %}
+        {{ ((stats.taken / 14) * 100) | round(0) | int }}%
+      {% else %}—{% endif %}
+    </div>
+    <div class="label">Compliance (of 14 possible)</div>
+  </div>
+</div>
+
+<!-- ── Week table ──────────────────────────────────────────────────────────── -->
+<div class="card" style="padding:0; overflow:hidden">
+  <table>
+    <colgroup>
+      <col style="width:130px">
+      <col style="width:38%">
+      <col style="width:38%">
+      <col>
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>💊 Dose 1 (earlier)</th>
+        <th>💊 Dose 2 (later)</th>
+        <th>Day actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for day in days %}
+      {% set is_today = day.date == today %}
+      <tr style="{{ 'background:#fffde7;' if is_today else '' }}">
+
+        <!-- Date column -->
+        <td style="font-weight:{{ '700' if is_today else '400' }}; white-space:nowrap; vertical-align:top; padding-top:0.65rem">
+          {{ day.date_str }}
+          {% if is_today %}
+          <br><span style="font-size:0.7rem; color:#f9a825; font-weight:600; text-transform:uppercase">today</span>
+          {% endif %}
+        </td>
+
+        <!-- Dose 1 slot -->
+        <td style="vertical-align:top; padding:0.5rem 0.75rem">
+          {% if day.dose1 %}
+            {% set s = day.dose1 %}
+            <div id="show-{{ s.id }}">
+              {% if s.taken %}
+              <span class="badge badge-green">✓ {{ s.display }}</span>
+              {% else %}
+              <span class="badge badge-gray" style="background:#fce4ec; color:#880e4f">✗ skipped</span>
+              {% endif %}
+              <button type="button" onclick="showEdit('{{ s.id }}')"
+                      class="btn btn-sm" style="margin-left:4px; background:#f0f0f0; color:#333">Edit</button>
+              <form method="post" action="/medications/{{ s.id }}/delete" style="display:inline"
+                    onsubmit="return confirm('Delete this Dose 1 record?')">
+                <input type="hidden" name="week" value="{{ week_start.isoformat() }}">
+                <button type="submit" class="btn btn-danger btn-sm" title="Delete record">×</button>
+              </form>
+            </div>
+            <div id="edit-{{ s.id }}" style="display:none; margin-top:6px;">
+              <form method="post" action="/medications/{{ s.id }}/update"
+                    style="display:flex; gap:5px; flex-wrap:wrap; align-items:center; background:#f5f5f5; padding:6px; border-radius:4px">
+                <input type="hidden" name="week" value="{{ week_start.isoformat() }}">
+                <input type="datetime-local" name="scheduled_ts" value="{{ s.local_str }}"
+                       style="width:175px; font-size:0.82rem; padding:3px 5px; border:1px solid #ccc; border-radius:3px">
+                <select name="taken" style="font-size:0.82rem; padding:3px 5px; border:1px solid #ccc; border-radius:3px">
+                  <option value="true"  {{ 'selected' if s.taken }}>Taken</option>
+                  <option value="false" {{ 'selected' if not s.taken }}>Skipped</option>
+                </select>
+                <button type="submit" class="btn btn-sm btn-success">Save</button>
+                <button type="button" class="btn btn-sm" style="background:#ccc; color:#333"
+                        onclick="hideEdit('{{ s.id }}')">Cancel</button>
+              </form>
+            </div>
+          {% else %}
+            <div id="show-add-d1-{{ loop.index0 }}">
+              <button type="button" onclick="showAdd('d1-{{ loop.index0 }}')"
+                      class="btn btn-sm"
+                      style="background:#e3f2fd; color:#0d47a1; border:1px dashed #90caf9">
+                + Log Dose 1
+              </button>
+            </div>
+            <div id="add-d1-{{ loop.index0 }}" style="display:none; margin-top:6px;">
+              <form method="post" action="/medications/add"
+                    style="display:flex; gap:5px; flex-wrap:wrap; align-items:center; background:#f5f5f5; padding:6px; border-radius:4px">
+                <input type="hidden" name="week" value="{{ week_start.isoformat() }}">
+                <input type="datetime-local" name="scheduled_ts"
+                       value="{{ day.date.isoformat() }}T{{ default_dose1_time }}"
+                       style="width:175px; font-size:0.82rem; padding:3px 5px; border:1px solid #ccc; border-radius:3px">
+                <select name="taken" style="font-size:0.82rem; padding:3px 5px; border:1px solid #ccc; border-radius:3px">
+                  <option value="true">Taken</option>
+                  <option value="false">Skipped</option>
+                </select>
+                <button type="submit" class="btn btn-sm btn-success">Add</button>
+                <button type="button" class="btn btn-sm" style="background:#ccc; color:#333"
+                        onclick="hideAdd('d1-{{ loop.index0 }}')">Cancel</button>
+              </form>
+            </div>
+          {% endif %}
+        </td>
+
+        <!-- Dose 2 slot -->
+        <td style="vertical-align:top; padding:0.5rem 0.75rem">
+          {% if day.dose2 %}
+            {% set s = day.dose2 %}
+            <div id="show-{{ s.id }}">
+              {% if s.taken %}
+              <span class="badge badge-green">✓ {{ s.display }}</span>
+              {% else %}
+              <span class="badge badge-gray" style="background:#fce4ec; color:#880e4f">✗ skipped</span>
+              {% endif %}
+              <button type="button" onclick="showEdit('{{ s.id }}')"
+                      class="btn btn-sm" style="margin-left:4px; background:#f0f0f0; color:#333">Edit</button>
+              <form method="post" action="/medications/{{ s.id }}/delete" style="display:inline"
+                    onsubmit="return confirm('Delete this Dose 2 record?')">
+                <input type="hidden" name="week" value="{{ week_start.isoformat() }}">
+                <button type="submit" class="btn btn-danger btn-sm" title="Delete record">×</button>
+              </form>
+            </div>
+            <div id="edit-{{ s.id }}" style="display:none; margin-top:6px;">
+              <form method="post" action="/medications/{{ s.id }}/update"
+                    style="display:flex; gap:5px; flex-wrap:wrap; align-items:center; background:#f5f5f5; padding:6px; border-radius:4px">
+                <input type="hidden" name="week" value="{{ week_start.isoformat() }}">
+                <input type="datetime-local" name="scheduled_ts" value="{{ s.local_str }}"
+                       style="width:175px; font-size:0.82rem; padding:3px 5px; border:1px solid #ccc; border-radius:3px">
+                <select name="taken" style="font-size:0.82rem; padding:3px 5px; border:1px solid #ccc; border-radius:3px">
+                  <option value="true"  {{ 'selected' if s.taken }}>Taken</option>
+                  <option value="false" {{ 'selected' if not s.taken }}>Skipped</option>
+                </select>
+                <button type="submit" class="btn btn-sm btn-success">Save</button>
+                <button type="button" class="btn btn-sm" style="background:#ccc; color:#333"
+                        onclick="hideEdit('{{ s.id }}')">Cancel</button>
+              </form>
+            </div>
+          {% else %}
+            <div id="show-add-d2-{{ loop.index0 }}">
+              <button type="button" onclick="showAdd('d2-{{ loop.index0 }}')"
+                      class="btn btn-sm"
+                      style="background:#e3f2fd; color:#0d47a1; border:1px dashed #90caf9">
+                + Log Dose 2
+              </button>
+            </div>
+            <div id="add-d2-{{ loop.index0 }}" style="display:none; margin-top:6px;">
+              <form method="post" action="/medications/add"
+                    style="display:flex; gap:5px; flex-wrap:wrap; align-items:center; background:#f5f5f5; padding:6px; border-radius:4px">
+                <input type="hidden" name="week" value="{{ week_start.isoformat() }}">
+                <input type="datetime-local" name="scheduled_ts"
+                       value="{{ day.date.isoformat() }}T{{ default_dose2_time }}"
+                       style="width:175px; font-size:0.82rem; padding:3px 5px; border:1px solid #ccc; border-radius:3px">
+                <select name="taken" style="font-size:0.82rem; padding:3px 5px; border:1px solid #ccc; border-radius:3px">
+                  <option value="true">Taken</option>
+                  <option value="false">Skipped</option>
+                </select>
+                <button type="submit" class="btn btn-sm btn-success">Add</button>
+                <button type="button" class="btn btn-sm" style="background:#ccc; color:#333"
+                        onclick="hideAdd('d2-{{ loop.index0 }}')">Cancel</button>
+              </form>
+            </div>
+          {% endif %}
+        </td>
+
+        <!-- Day actions column -->
+        <td style="vertical-align:top; padding:0.5rem 0.75rem; white-space:nowrap">
+          {% if not day.dose1 or not day.dose2 %}
+          <form method="post" action="/medications/generate-defaults" style="display:inline; margin-right:4px"
+                onsubmit="injectDoseTimes(this)">
+            <input type="hidden" name="week" value="{{ week_start.isoformat() }}">
+            <input type="hidden" name="date" value="{{ day.date.isoformat() }}">
+            <input type="hidden" name="dose1_time" value="{{ default_dose1_time }}">
+            <input type="hidden" name="dose2_time" value="{{ default_dose2_time }}">
+            <button type="submit" class="btn btn-sm"
+                    style="background:#e8f5e9; color:#2e7d32; border:1px solid #a5d6a7"
+                    title="Add Dose 1 and Dose 2 entries at the times shown above (only missing slots are created)">
+              Fill defaults
+            </button>
+          </form>
+          {% endif %}
+          <form method="post" action="/medications/skip-day" style="display:inline"
+                onsubmit="injectDoseTimes(this); return confirm('Mark {{ day.date_str }} as no medication taken?')">
+            <input type="hidden" name="week" value="{{ week_start.isoformat() }}">
+            <input type="hidden" name="date" value="{{ day.date.isoformat() }}">
+            <input type="hidden" name="dose1_time" value="{{ default_dose1_time }}">
+            <input type="hidden" name="dose2_time" value="{{ default_dose2_time }}">
+            <button type="submit" class="btn btn-sm"
+                    style="background:#ffebee; color:#c62828; border:1px solid #ef9a9a"
+                    title="Record that no medication was taken on this day">
+              Skip day
+            </button>
+          </form>
+        </td>
+
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- ── Legend ──────────────────────────────────────────────────────────────── -->
+<div style="font-size:0.78rem; color:#888; margin-top:-0.75rem; margin-bottom:1.5rem; display:flex; gap:1.5rem; flex-wrap:wrap">
+  <span><strong>Fill defaults</strong> — adds Dose 1 + Dose 2 at the times set above (won't overwrite existing)</span>
+  <span><strong>Skip day</strong> — records that medication was not taken (logs or overwrites both slots as skipped)</span>
+  <span><strong>×</strong> — removes the record entirely (no data, vs. "skipped" which is an explicit entry)</span>
+</div>
+
+<script>
+// ── Inline edit / add toggle ────────────────────────────────────────────────
+function showEdit(id) {
+  document.getElementById('show-' + id).style.display = 'none';
+  document.getElementById('edit-' + id).style.display = 'block';
+}
+function hideEdit(id) {
+  document.getElementById('show-' + id).style.display = '';
+  document.getElementById('edit-' + id).style.display = 'none';
+}
+function showAdd(key) {
+  document.getElementById('show-add-' + key).style.display = 'none';
+  document.getElementById('add-' + key).style.display = 'block';
+}
+function hideAdd(key) {
+  document.getElementById('show-add-' + key).style.display = '';
+  document.getElementById('add-' + key).style.display = 'none';
+}
+
+// ── Default fill-time override — persisted in sessionStorage ────────────────
+const D1_KEY = 'med_dose1_time';
+const D2_KEY = 'med_dose2_time';
+
+function saveDefaultTimes() {
+  const d1 = document.getElementById('dose1-time').value;
+  const d2 = document.getElementById('dose2-time').value;
+  if (d1) sessionStorage.setItem(D1_KEY, d1);
+  if (d2) sessionStorage.setItem(D2_KEY, d2);
+}
+
+// Inject current override times into hidden form fields before submit
+function injectDoseTimes(form) {
+  const d1 = document.getElementById('dose1-time').value;
+  const d2 = document.getElementById('dose2-time').value;
+  if (d1) form.querySelector('[name="dose1_time"]').value = d1;
+  if (d2) form.querySelector('[name="dose2_time"]').value = d2;
+}
+
+// On load: restore saved overrides from sessionStorage
+(function () {
+  const d1 = sessionStorage.getItem(D1_KEY);
+  const d2 = sessionStorage.getItem(D2_KEY);
+  if (d1) document.getElementById('dose1-time').value = d1;
+  if (d2) document.getElementById('dose2-time').value = d2;
+})();
+</script>
+{% endblock %}
