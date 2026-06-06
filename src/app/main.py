@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.database import init_db, SessionLocal, DB_PATH
 from app.models.app_config import AppConfig
 from app.models.food_item import FoodItem
-from app.routers import dashboard, meals, activities, cgm, food_lookup, training, spikes, config, predictions, medications, forecast
+from app.routers import dashboard, meals, activities, cgm, food_lookup, training, spikes, config, predictions, medications, forecast, weekly
 
 DATA_RAW = os.environ.get("DATA_RAW_DIR", "/app/data/raw")
 
@@ -103,3 +103,4 @@ app.include_router(config.router)
 app.include_router(predictions.router)
 app.include_router(medications.router)
 app.include_router(forecast.router)
+app.include_router(weekly.router)

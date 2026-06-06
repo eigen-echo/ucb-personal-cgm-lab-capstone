@@ -33,328 +33,191 @@
   </a>
 </div>
 
-<!-- Weekly CGM overlay chart -->
+<!-- Daily pattern chart: 14-day averaged glucose by time of day -->
 <div class="card">
-  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem;">
-    <h2 style="margin:0">Weekly glucose overview</h2>
-    <div style="display:flex; align-items:center; gap:0.5rem;">
-      <button id="cgm-prev" class="btn btn-sm" style="background:#f0f0f8; color:#1a1a2e; padding:0.25rem 0.7rem; font-size:1rem;">&#8592;</button>
-      <span id="cgm-week-label" style="font-size:0.88rem; color:#555; min-width:160px; text-align:center;">-</span>
-      <button id="cgm-next" class="btn btn-sm" style="background:#f0f0f8; color:#1a1a2e; padding:0.25rem 0.7rem; font-size:1rem;" disabled>&#8594;</button>
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem; flex-wrap:wrap; gap:0.5rem;">
+    <div>
+      <h2 style="margin:0">Daily glucose pattern
+        <span id="pattern-days-label" style="font-size:0.8rem; font-weight:400; color:#888"></span>
+      </h2>
+    </div>
+    <div style="display:flex; align-items:center; gap:0.75rem; font-size:0.78rem; color:#888;">
+      <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#b0bec5;vertical-align:middle;margin-right:3px"></span>15th–75th percentile</span>
+      <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#F9A825;vertical-align:middle;margin-right:3px"></span>Above 180</span>
+      <span><span style="display:inline-block;width:20px;height:3px;background:#1a1a2e;vertical-align:middle;margin-right:3px"></span>Average</span>
     </div>
   </div>
-
-  <div style="position:relative;">
-    <canvas id="weeklyCgmChart" height="110"></canvas>
-  </div>
-
-  <!-- Locked-day indicator -->
-  <div id="cgm-lock-pill" style="display:none; margin-top:0.6rem; font-size:0.8rem; color:#555;">
-    <span style="background:#e8eaf6; border-radius:12px; padding:0.2rem 0.7rem; display:inline-flex; align-items:center; gap:0.4rem;">
-      <span>&#128204;</span>
-      <span id="cgm-lock-label"></span>
-      <span id="cgm-lock-dismiss" style="cursor:pointer; font-weight:700; color:#888; padding-left:0.2rem;">&#10005;</span>
-    </span>
-    <span style="margin-left:0.5rem; color:#aaa;">click legend again or ✕ to unlock</span>
+  <div id="pattern-loading" style="color:#999; font-size:0.85rem; padding:2rem 0; text-align:center;">Loading…</div>
+  <canvas id="patternChart" height="90" style="display:none"></canvas>
+  <div style="margin-top:0.4rem; font-size:0.75rem; color:#aaa; text-align:right;">
+    <a href="/weekly/" style="color:#1565C0; text-decoration:none;">View day-by-day weekly overlay →</a>
   </div>
 </div>
 
 <script>
 (function () {
-  // ── Palette (Mon→Sun) ────────────────────────────────────────────────────
-  const COLORS = ['#1565C0','#00897B','#2E7D32','#F9A825','#E65100','#6A1B9A','#C62828'];
+  fetch('/api/daily-pattern?days=14')
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('pattern-loading').style.display = 'none';
+      const canvas = document.getElementById('patternChart');
+      canvas.style.display = '';
 
-  // ── State ────────────────────────────────────────────────────────────────
-  let weekOffset = 0;
-  let lockedDay  = null;   // 0-6 or null
-  let hoveredDay = null;   // 0-6 or null
-  let chart      = null;
-  let weekData   = null;
+      const label = document.getElementById('pattern-days-label');
+      label.textContent = `— averaged over last ${data.days} days`;
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
-  function fracToLabel(t) {
-    const h = Math.floor(t), m = Math.round((t - h) * 60);
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const h12  = h % 12 || 12;
-    return `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
-  }
+      // Build dense arrays indexed 0-95
+      // barData[i] = raw bucket object (for tooltip access)  or null
+      // avgData[i] = avg value or null
+      const barData   = new Array(96).fill(null);
+      const avgData   = new Array(96).fill(null);
+      const barColors = new Array(96).fill('rgba(0,0,0,0)');
 
-  function updateMarkers() {
-    if (!chart) return;
+      data.buckets.forEach(b => {
+        barData[b.bucket]   = b;
+        avgData[b.bucket]   = b.avg;
+        barColors[b.bucket] = b.p75 > 180 ? '#F9A825' : '#b0bec5';
+      });
 
-    // ── Line colours: fade non-locked days to gray when a day is locked ──────
-    for (let i = 0; i < 7; i++) {
-      const ds  = chart.data.datasets[i];
-      const day = weekData ? weekData.days[i] : null;
-      if (lockedDay === null) {
-        // No lock - restore each day's original colour
-        ds.borderColor = day && day.is_future ? '#ddd' : COLORS[i];
-        ds.borderWidth = day && day.is_today  ? 2.5    : 1.5;
-      } else if (i === lockedDay) {
-        // Selected day - full colour, slightly emphasised
-        ds.borderColor = day && day.is_future ? '#aaa' : COLORS[i];
-        ds.borderWidth = 2.5;
-      } else {
-        // All other days - fade to light gray
-        ds.borderColor = '#d0d0d0';
-        ds.borderWidth = 1;
+      // x-axis labels: one per bucket (15-min intervals), displayed at 3h marks
+      const xLabels = [];
+      for (let i = 0; i < 96; i++) {
+        const h = Math.floor(i * 15 / 60);
+        const m = (i * 15) % 60;
+        xLabels.push(`${h}:${String(m).padStart(2,'0')}`);
       }
-    }
 
-    // ── Markers: show for locked or hovered day ───────────────────────────────
-    for (let i = 0; i < 7; i++) {
-      const show = (lockedDay === i || hoveredDay === i);
-      chart.data.datasets[7  + i].pointRadius = show ? 9 : 0;   // meals
-      chart.data.datasets[14 + i].pointRadius = show ? 8 : 0;   // activities
-    }
+      function fmtLabel(idx) {
+        const h = Math.floor(idx * 15 / 60);
+        const m = (idx * 15) % 60;
+        const ampm = h < 12 ? 'AM' : 'PM';
+        const h12  = h % 12 || 12;
+        return `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
+      }
 
-    chart.update('none');
-
-    // ── Lock pill ─────────────────────────────────────────────────────────────
-    const pill  = document.getElementById('cgm-lock-pill');
-    const label = document.getElementById('cgm-lock-label');
-    if (lockedDay !== null && weekData) {
-      label.textContent = weekData.days[lockedDay].label;
-      pill.style.display = '';
-    } else {
-      pill.style.display = 'none';
-    }
-  }
-
-  // ── Build / rebuild chart from fetched data ───────────────────────────────
-  function buildChart(data) {
-    weekData = data;
-    document.getElementById('cgm-week-label').textContent = data.week_label;
-    document.getElementById('cgm-prev').disabled = (data.week_offset <= -52);
-    document.getElementById('cgm-next').disabled = (data.week_offset >= 0);
-
-    // Flatten into Chart.js datasets
-    const datasets = [];
-
-    // ── 7 CGM line datasets (indices 0-6) ──────────────────────────────────
-    data.days.forEach((day, i) => {
-      datasets.push({
-        label:           day.label,
-        data:            day.cgm.map(p => ({ x: p.t, y: p.g })),
-        borderColor:     day.is_future ? '#ddd' : COLORS[i],
-        backgroundColor: 'transparent',
-        borderWidth:     day.is_today ? 2.5 : 1.5,
-        borderDash:      day.is_future ? [4, 4] : [],
-        pointRadius:     0,
-        tension:         0.3,
-        type:            'line',
-        order:           day.is_today ? 0 : 1,   // today on top
-      });
-    });
-
-    // ── 7 meal scatter datasets (indices 7-13) ────────────────────────────
-    data.days.forEach((day, i) => {
-      datasets.push({
-        label:           `__meals_${i}`,
-        data:            day.meals.map(m => ({ x: m.t, y: m.g, meta: m })),
-        type:            'scatter',
-        pointStyle:      'triangle',
-        pointRadius:     0,
-        backgroundColor: COLORS[i],
-        borderColor:     '#fff',
-        borderWidth:     1.5,
-        order:           -1,
-      });
-    });
-
-    // ── 7 activity scatter datasets (indices 14-20) ───────────────────────
-    data.days.forEach((day, i) => {
-      datasets.push({
-        label:           `__acts_${i}`,
-        data:            day.activities.map(a => ({ x: a.t, y: a.g, meta: a })),
-        type:            'scatter',
-        pointStyle:      'circle',
-        pointRadius:     0,
-        backgroundColor: COLORS[i],
-        borderColor:     '#fff',
-        borderWidth:     2,
-        order:           -1,
-      });
-    });
-
-    // ── Reference lines (indices 21, 22) ─────────────────────────────────
-    datasets.push({
-      label: '__ref180',
-      data:  [{ x: 0, y: 180 }, { x: 24, y: 180 }],
-      type:  'line',
-      borderColor: '#FF8F00',
-      borderWidth: 1,
-      borderDash:  [5, 4],
-      pointRadius: 0,
-      fill: false,
-      order: 2,
-    });
-    datasets.push({
-      label: '__ref70',
-      data:  [{ x: 0, y: 70 }, { x: 24, y: 70 }],
-      type:  'line',
-      borderColor: '#c62828',
-      borderWidth: 1,
-      borderDash:  [5, 4],
-      pointRadius: 0,
-      fill: false,
-      order: 2,
-    });
-
-    // ── Destroy and recreate ──────────────────────────────────────────────
-    if (chart) { chart.destroy(); chart = null; }
-    lockedDay  = null;
-    hoveredDay = null;
-
-    const ctx = document.getElementById('weeklyCgmChart').getContext('2d');
-    chart = new Chart(ctx, {
-      type: 'scatter',
-      data: { datasets },
-      options: {
-        animation: false,
-        interaction: { mode: 'nearest', axis: 'x', intersect: false },
-        onHover: (event, activeElements) => {
-          if (!activeElements.length) {
-            if (hoveredDay !== null) { hoveredDay = null; updateMarkers(); }
-            return;
-          }
-          const dsIdx = activeElements[0].datasetIndex;
-          // Only update hoveredDay for CGM lines (0-6)
-          // If hovering a marker (7-20), keep current state
-          if (dsIdx < 7) {
-            if (hoveredDay !== dsIdx) { hoveredDay = dsIdx; updateMarkers(); }
-          }
+      new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: xLabels,
+          datasets: [
+            // ── Floating percentile bars ──────────────────────────────────
+            {
+              label:           '15th–75th percentile',
+              data:            barData.map(b => b ? [b.p15, b.p75] : null),
+              backgroundColor: barColors,
+              borderWidth:     0,
+              barPercentage:   1.0,
+              categoryPercentage: 1.0,
+              order:           2,
+            },
+            // ── Average line ──────────────────────────────────────────────
+            {
+              label:           'Average',
+              type:            'line',
+              data:            avgData,
+              borderColor:     '#1a1a2e',
+              backgroundColor: '#1a1a2e',
+              pointRadius:     2,
+              pointHoverRadius: 5,
+              pointStyle:      'circle',
+              borderWidth:     1.5,
+              tension:         0.3,
+              fill:            false,
+              spanGaps:        false,
+              order:           1,
+            },
+            // ── 180 reference line ────────────────────────────────────────
+            {
+              label:       '__ref180',
+              type:        'line',
+              data:        new Array(96).fill(180),
+              borderColor: '#E65100',
+              borderWidth: 1,
+              borderDash:  [5, 4],
+              pointRadius: 0,
+              fill:        false,
+              spanGaps:    true,
+              order:       3,
+            },
+            // ── 70 reference line ─────────────────────────────────────────
+            {
+              label:       '__ref70',
+              type:        'line',
+              data:        new Array(96).fill(70),
+              borderColor: '#c62828',
+              borderWidth: 1,
+              borderDash:  [5, 4],
+              pointRadius: 0,
+              fill:        false,
+              spanGaps:    true,
+              order:       3,
+            },
+          ],
         },
-        plugins: {
-          legend: {
-            position: 'bottom',
-            labels: {
-              filter: item => !item.text.startsWith('__'),
-              usePointStyle: true,
-              pointStyle: 'line',
-              boxWidth: 30,
-              padding: 14,
-              font: { size: 12 },
+        options: {
+          animation:   false,
+          interaction: { mode: 'index', axis: 'x', intersect: false },
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                filter:       item => !item.text.startsWith('__'),
+                usePointStyle: true,
+                padding:      16,
+                font:         { size: 12 },
+              },
             },
-            onClick: (e, legendItem) => {
-              // Only handle CGM line items (indices 0-6)
-              const i = legendItem.datasetIndex;
-              if (i >= 7) return;
-              lockedDay = (lockedDay === i) ? null : i;
-              updateMarkers();
-            },
-            onHover: (e, legendItem) => {
-              if (legendItem.datasetIndex < 7) {
-                hoveredDay = legendItem.datasetIndex;
-                updateMarkers();
-              }
-            },
-            onLeave: () => {
-              hoveredDay = null;
-              updateMarkers();
+            tooltip: {
+              callbacks: {
+                title(items) {
+                  const idx = items[0].dataIndex;
+                  const b   = barData[idx];
+                  return b ? b.time_range : fmtLabel(idx);
+                },
+                label(item) {
+                  // Only annotate using the bar dataset; skip others
+                  if (item.datasetIndex !== 0) return null;
+                  const b = barData[item.dataIndex];
+                  if (!b) return null;
+                  return [
+                    `75th percentile: ${Math.round(b.p75)} mg/dL`,
+                    `Average:         ${Math.round(b.avg)} mg/dL`,
+                    `15th percentile: ${Math.round(b.p15)} mg/dL`,
+                  ];
+                },
+              },
+              filter: item => item.datasetIndex === 0,  // one tooltip block
             },
           },
-          tooltip: {
-            callbacks: {
-              title(items) {
-                const item = items[0];
-                const i    = item.datasetIndex;
-                if (i < 7) {
-                  return `${weekData.days[i].label}  ·  ${fracToLabel(item.parsed.x)}`;
-                }
-                if (i >= 7 && i < 14) {
-                  const m = item.raw.meta;
-                  return `${weekData.days[i - 7].label}  ·  ${fracToLabel(m.t)}`;
-                }
-                if (i >= 14 && i < 21) {
-                  const a = item.raw.meta;
-                  return `${weekData.days[i - 14].label}  ·  ${fracToLabel(a.t)}`;
-                }
-                return '';
+          scales: {
+            x: {
+              ticks: {
+                maxRotation: 0,
+                callback: (val, idx) => {
+                  // Show label every 12 buckets = every 3 hours
+                  if (idx % 12 !== 0) return '';
+                  const h = Math.floor(idx * 15 / 60);
+                  if (h === 0)  return '12am';
+                  if (h === 12) return '12pm';
+                  return h < 12 ? `${h}am` : `${h - 12}pm`;
+                },
+                font: { size: 11 },
               },
-              label(item) {
-                const i = item.datasetIndex;
-                if (i < 7) {
-                  const g = Math.round(item.parsed.y);
-                  const lines = [`${g} mg/dL`];
-                  // Annotate nearby meals / activities (±15 min = 0.25 h)
-                  const t = item.parsed.x;
-                  const day = weekData.days[i];
-                  day.meals.forEach(m => {
-                    if (Math.abs(m.t - t) <= 0.25)
-                      lines.push(`🍽  ${m.name}${m.carbs ? '  ' + m.carbs + 'g' : ''}`);
-                  });
-                  day.activities.forEach(a => {
-                    if (Math.abs(a.t - t) <= 0.25)
-                      lines.push(`🚶  ${a.type}  ${a.duration} min`);
-                  });
-                  return lines;
-                }
-                if (i >= 7 && i < 14) {
-                  const m = item.raw.meta;
-                  return `🍽  ${m.name}${m.carbs ? '  ' + m.carbs + 'g carbs' : ''}`;
-                }
-                if (i >= 14 && i < 21) {
-                  const a = item.raw.meta;
-                  return `🚶  ${a.type}  ·  ${a.duration} min`;
-                }
-                return '';
-              },
-            }
+              grid: { color: '#f0f0f0' },
+            },
+            y: {
+              title: { display: true, text: 'Glucose (mg/dL)', font: { size: 11 } },
+              min:   50,
+              ticks: { font: { size: 11 } },
+              grid:  { color: '#f0f0f0' },
+            },
           },
         },
-        scales: {
-          x: {
-            type: 'linear',
-            min: 0, max: 24,
-            ticks: {
-              stepSize: 3,
-              callback: v => {
-                if (v === 0 || v === 24) return '12am';
-                if (v === 12) return '12pm';
-                return v < 12 ? `${v}am` : `${v - 12}pm`;
-              },
-              font: { size: 11 },
-            },
-            grid: { color: '#f0f0f0' },
-          },
-          y: {
-            title: { display: true, text: 'Glucose (mg/dL)', font: { size: 11 } },
-            min: 50,
-            ticks: { font: { size: 11 } },
-            grid: { color: '#f0f0f0' },
-          },
-        },
-      },
-    });
-
-    updateMarkers();
-  }
-
-  // ── Fetch and (re)draw ────────────────────────────────────────────────────
-  function loadWeek(offset) {
-    weekOffset = offset;
-    document.getElementById('cgm-week-label').textContent = 'Loading…';
-    fetch(`/api/weekly-cgm?week_offset=${offset}`)
-      .then(r => r.json())
-      .then(buildChart)
-      .catch(() => {
-        document.getElementById('cgm-week-label').textContent = 'Failed to load';
       });
-  }
-
-  // ── Nav buttons ───────────────────────────────────────────────────────────
-  document.getElementById('cgm-prev').addEventListener('click', () => loadWeek(weekOffset - 1));
-  document.getElementById('cgm-next').addEventListener('click', () => loadWeek(weekOffset + 1));
-
-  // ── Lock pill dismiss ────────────────────────────────────────────────────
-  document.getElementById('cgm-lock-dismiss').addEventListener('click', () => {
-    lockedDay = null;
-    updateMarkers();
-  });
-
-  // ── Initial load ──────────────────────────────────────────────────────────
-  loadWeek(0);
+    })
+    .catch(() => {
+      document.getElementById('pattern-loading').textContent = 'Could not load daily pattern data.';
+    });
 })();
 </script>
 
